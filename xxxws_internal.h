@@ -115,20 +115,20 @@ typedef enum{
 }xxxws_file_mode_t;
 
 typedef struct xxxws_file_ram_t xxxws_file_ram_t;
-struct {
+struct xxxws_file_ram_t{
     uint32_t pos;
     xxxws_cbuf_t* cbuf;
-}xxxws_file_ram_t;
+};
 
 typedef struct xxxws_file_rom_t xxxws_file_rom_t;
-struct {
+struct xxxws_file_rom_t{
     uint8_t* ptr;
     uint32_t pos;
     uint32_t size;
-}xxxws_file_rom_t;
+};
 
 typedef struct xxxws_file_disk_t xxxws_file_disk_t;
-struct {
+struct xxxws_file_disk_t{
 #ifdef XXXWS_FS_ENV_UNIX
     FILE* fd;
 #elif XXXWS_FS_ENV_FATAFS
@@ -136,7 +136,7 @@ struct {
 #else
 
 #endif
-}xxxws_file_disk_t;
+};
 
 typedef struct xxxws_file_t xxxws_file_t;
 struct xxxws_file_t{
@@ -147,7 +147,7 @@ struct xxxws_file_t{
         xxxws_file_ram_t ram;
         xxxws_file_rom_t rom;
         xxxws_file_disk_t disk;
-    }
+    }descriptor;
 };
 
 xxxws_err_t xxxws_fs_fopen(char* path, xxxws_file_t* file);
@@ -284,6 +284,10 @@ struct xxxws_httpreq_t{
     uint16_t headers_len;
     uint32_t body_len;
     
+	char* fname;
+	xxxws_file_t file;
+	uint32_t unstored_len;
+	
     uint32_t range_start;
     uint32_t range_end;
 };

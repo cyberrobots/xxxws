@@ -8,7 +8,8 @@
 
 */
 void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
-void xxxws_state_http_request_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
+void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
+void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
@@ -39,7 +40,7 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
 
 			
 			
-            xxxws_schdlr_state_enter(xxxws_state_http_request_receive);
+            xxxws_schdlr_state_enter(xxxws_state_http_request_headers_receive);
         }break;
         default:
         {
@@ -680,7 +681,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                 xxxws_client_cleanup(client);
                 
                 if(client->httpresp.keep_alive){
-                    xxxws_schdlr_state_enter(xxxws_state_http_request_receive);
+                    xxxws_schdlr_state_enter(xxxws_state_http_request_headers_receive);
                 }else{
                     xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
                 }
