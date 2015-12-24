@@ -1,9 +1,5 @@
 #include "xxxws.h"
 
-
-#define ENSURE(cond) printf("ENSUREEEEEEEE!\r\n");while(1){}
-
-
 xxxws_cbuf_t* xxxws_cbuf_alloc(uint8_t* data, uint32_t len){
 	xxxws_cbuf_t* cbuf = xxxws_mem_malloc(sizeof(xxxws_cbuf_t) + len + 1 /* '\0' */);
 	if(cbuf){
@@ -56,6 +52,55 @@ xxxws_cbuf_t* xxxws_cbuf_chain(xxxws_cbuf_t* cbuf0, xxxws_cbuf_t* cbuf1){
 	}
 	cbuf->next = cbuf1;
 	return cbuf0;
+}
+
+/*
+** Splits the first cbuf of the cahin so it has exactly "offset" len
+*/
+xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
+	xxxws_cbuf_t* cbuf_new;
+	uint16_t alloc_sz1, alloc_sz2;
+	
+	XXXWS_ENSURE((*cbuf_list) != NULL, "");
+	XXXWS_ENSURE((*cbuf_list)->len >= size, "");
+	
+	if((*cbuf_list)->len == size){
+		return XXXWS_ERR_OK;
+	}
+	
+	/*
+	** Required allocation size if we are going to prepend a cbuf
+	*/
+	alloc_sz1 = size;
+	
+	/*
+	** Required allocation size if we are going to append a cbuf
+	*/
+	alloc_sz2 = (*cbuf_list)->len - size;
+	
+	if(alloc_sz1 < alloc_sz2){
+		/* Prepend */
+		cbuf_new = xxxws_cbuf_alloc(&((*cbuf_list)->data)[0], alloc_sz1);
+		if(!cbuf_new){
+			return XXXWS_ERR_TEMP;
+		}
+		cbuf_new->next = (*cbuf_list);
+		(*cbuf_list) = cbuf_new;
+		cbuf_new->next->data = &cbuf_new->next->data[alloc_sz1];
+		cbuf_new->next->len -= alloc_sz1;
+	}else{
+		/* Append */
+		cbuf_new = xxxws_cbuf_alloc(&((*cbuf_list)->data)[size], alloc_sz2);
+		if(!cbuf_new){
+			return XXXWS_ERR_TEMP;
+		}
+		cbuf_new->next = (*cbuf_list)->next;
+		(*cbuf_list)->next = cbuf_new;
+		(*cbuf_list)->data[size] = '\0';
+		(*cbuf_list)->len -= alloc_sz2;
+	}
+	
+	return XXXWS_ERR_OK;
 }
 
 uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf, uint32_t index, char* str, uint8_t matchCase){
@@ -302,16 +347,21 @@ int main(){
 	char* text1 = "text1 data 11111";
 	char* text2 = "text2 data 22222";
 	
-	cbuf_t* cbuf[3];
-	cbuf_t* cbuf_start;
+	xxxws_cbuf_t* cbuf[3];
+	xxxws_cbuf_t* cbuf_start;
 	printf("Start..\r\n");
 	
-	cbuf[0] = cbuf_alloc((uint8_t*) text0, strlen(text0));
-	cbuf[1] = cbuf_alloc((uint8_t*) text1, strlen(text1));
-	cbuf[2] = cbuf_alloc((uint8_t*) text2, strlen(text2));
+	cbuf[0] = xxxws_cbuf_alloc((uint8_t*) text0, strlen(text0));
+	cbuf[1] = xxxws_cbuf_alloc((uint8_t*) text1, strlen(text1));
+	cbuf[2] = xxxws_cbuf_alloc((uint8_t*) text2, strlen(text2));
 	
-	cbuf_start = cbuf_chain(cbuf[0], cbuf[1]);
-	cbuf_start = cbuf_chain(cbuf_start, cbuf[2]);
+	
+	cbuf_start = xxxws_cbuf_chain(cbuf[0], cbuf[1]);
+	cbuf_start = xxxws_cbuf_chain(cbuf_start, cbuf[2]);
+	
+	cbuf_print(cbuf_start);
+	
+	xxxws_cbuf_rechain(cbuf_start, 1);
 	
 	cbuf_print(cbuf_start);
 	

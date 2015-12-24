@@ -72,7 +72,7 @@ Content-Length: 88
 Content-Type: text/html
 Connection: Closed
 */
-xxxws_err_t xxxws_http_response_build(xxxws_client_t* client, uint8_t* buf, uint32_t buflen){
+xxxws_err_t xxxws_http_response_build(xxxws_client_t* client){
 #if 0
     sprintf((char*)client->httpresp.buf,"HTTP/1.1 %u OK\r\nContent-Type: text/html\r\nContent-Length: %u\r\n\r\n",client->httpresp.status_code, filesize);
     client->httpresp.buf_index = 0;

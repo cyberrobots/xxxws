@@ -90,6 +90,7 @@ uint8_t xxxws_mvc_get_errors(xxxws_client_t* client){
     return client->mvc->errors;
 }
 
+#if 0
 /////////////////////////////////////////////////////////////////////
 typedef struct xxxws_req_param_t xxxws_req_param_t;
 struct xxxws_req_param_t{
@@ -147,4 +148,4 @@ xxxws_err_t xxxws_mvc_param_reader_read(xxxws_req_param_reader_t* reader, uint8_
     
     return err;
 }
-
+#endif

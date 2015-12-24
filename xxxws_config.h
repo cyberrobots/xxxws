@@ -6,18 +6,21 @@
 ** Choose Filesystem
 */
 #define XXXWS_FS_ENV_UNIX
+//#define XXXWS_FS_ENV_WINDOWS
 //#define XXXWS_FS_ENV_FATFS
 
 /*
 ** Choose TCP/IP stack
 */
 #define XXXWS_TCPIP_ENV_UNIX
+//#define XXXWS_TCPIP_ENV_WINDOWS
 //#define XXXWS_TCPIP_ENV_LWIP
 
 /*
 ** Select OS
 */
 #define XXXWS_OS_ENV_UNIX
+//#define XXXWS_OS_ENV_WINDOWS
 //#define XXXWS_OS_ENV_CHIBIOS
 //#define XXXWS_OS_ENV_FREERTOS
 

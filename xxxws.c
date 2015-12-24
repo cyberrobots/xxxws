@@ -24,8 +24,10 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
         {
             //client->server = server;
             client->httpreq.cbuf_list = NULL;
+			client->httpreq.cbuf_list_offset = 0;
+			
             client->httpreq.url = NULL;
-			strcpy(client->httpreq.fname, "");
+			strcpy(client->httpreq.file_name, "");
 			client->httpreq.range_start = xxxws_httpreq_range_WF;
             client->httpreq.range_end = xxxws_httpreq_range_WF;
             //xxxws_fs_freset(client->httpreq.file);
@@ -72,7 +74,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
             XXXWS_LOG("[xxxws_schdlr_EV_READ]");
 
             cbuf = xxxws_schdlr_socket_read();
-            xxxws_cbuf_list_add(&client->httpreq.cbuf_list, cbuf);
+            xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
             cbuf_print(client->httpreq.cbuf_list);
             
             err = xxxws_http_request_parse(client);
@@ -114,6 +116,8 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
 
 void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_cbuf_t* cbuf;
+	xxxws_cbuf_t* cbuf_next;
+	uint32_t actual_write_sz;
     xxxws_err_t err;
     
     switch(ev){
@@ -132,7 +136,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             XXXWS_LOG("[xxxws_schdlr_EV_READ]");
 			
 			cbuf = xxxws_schdlr_socket_read();
-            xxxws_cbuf_list_add(&client->httpreq.cbuf_list, cbuf);
+            xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
             cbuf_print(client->httpreq.cbuf_list);
             
 			xxxws_schdlr_set_state_poll(0);
@@ -140,14 +144,15 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         case xxxws_schdlr_EV_POLL:
         {
             XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
-			char request_fname[64];
-			sprintf(request_fname, XXXWS_FS_ROOT""XXXWS_FS_TEMP"%u",(uint32_t) &client);
-			XXXWS_ENSURE(strlen(request_fname) < sizeof(client->httpreq.fname), "");
-			if(!xxxws_fs_fisopened(client->httpreq.file)){
-				err = xxxws_fs_fopen(request_fname, XXXWS_FILE_TYPE_RAM, client->httpreq.file);
+			char request_file_name[64];
+			sprintf(request_file_name, XXXWS_FS_ROOT""XXXWS_FS_TEMP"%u",(uint32_t) &client);
+			XXXWS_ENSURE(strlen(request_file_name) < sizeof(client->httpreq.file_name), "");
+			if(!xxxws_fs_fisopened(&client->httpreq.file)){
+				err = xxxws_fs_fopen_write(request_file_name, XXXWS_FILE_TYPE_RAM, &client->httpreq.file);
 				switch(err){
 					case XXXWS_ERR_OK:
-						strcpy(client->httpreq.fname, request_fname);
+						client->httpreq.file_type = XXXWS_FILE_TYPE_RAM;
+						strcpy(client->httpreq.file_name, request_file_name);
 						break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -159,7 +164,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 				};
 			}
 			
-			if(!client->httpreq.cbuf){
+			if(!client->httpreq.cbuf_list){
 				/*
 				** Disable POLL, wait READ
 				*/
@@ -167,28 +172,33 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 				return;
 			}
 			
-			while(client->httpreq.cbuf_headers){
-				cbuf = client->httpreq.cbuf;
+			while(client->httpreq.cbuf_list){
+				cbuf = client->httpreq.cbuf_list;
 				cbuf_next = cbuf->next;
-				cbuf_len = cbuf->len;
 				
 				if(cbuf->len > client->httpreq.unstored_len){
-					err = xxxws_cbuf_rechain(client->httpreq.cbuf_list, client->httpreq.unstored_len);
+					err = xxxws_cbuf_rechain(&client->httpreq.cbuf_list, client->httpreq.unstored_len);
 					if(err != XXXWS_ERR_OK){
 						return;
 					}
 					continue;
 				}
 				
-				err = xxxws_port_fs_fwrite_cbuf(cbuf);
+				//err = xxxws_port_fs_fwrite_cbuf(cbuf);
+				err = xxxws_fs_fwrite(&client->httpreq.file, &cbuf->data[client->httpreq.cbuf_list_offset],  cbuf->len, &actual_write_sz);
 				switch(err){
 					case XXXWS_ERR_OK:
-						unstored_len -= cbuf_len;
+						client->httpreq.cbuf_list_offset += actual_write_sz;
+						if(client->httpreq.cbuf_list_offset == cbuf->len){
+							xxxws_cbuf_free(cbuf);
+							client->httpreq.cbuf_list_offset = 0;
+						}
+						client->httpreq.unstored_len -= actual_write_sz;
 						if(!client->httpreq.unstored_len){
 							/*
 							** Whole request was stored into RAM/Disk file
 							*/
-							xxxws_fs_fclose(file);
+							xxxws_fs_fclose(&client->httpreq.file);
 							xxxws_schdlr_state_enter(xxxws_state_prepare_http_response);
 						}
 						break;
@@ -201,7 +211,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 						break;
 				};
 				
-				client->httpreq.cbuf_headers = cbuf_next;
+				client->httpreq.cbuf_list = cbuf_next;
 			}
         }break;
         case xxxws_schdlr_EV_CLOSED:
@@ -770,6 +780,7 @@ void xxxws_client_cleanup(xxxws_client_t* client){
     if(client->httpreq.cbuf_list){
         xxxws_cbuf_list_free(client->httpreq.cbuf_list);
         client->httpreq.cbuf_list = NULL;
+		client->httpreq.cbuf_list_offset = 0;
     }
     
     if(client->httpreq.url){
@@ -777,12 +788,12 @@ void xxxws_client_cleanup(xxxws_client_t* client){
         client->httpreq.url = NULL;
     }  
 
-	if(client->httpreq.fname[0] != '\0'){
-		if(!xxxws_fs_fisopened(client->httpreq.file)){
-			xxxws_fs_fclose(client->httpreq.file);
+	if(client->httpreq.file_name[0] != '\0'){
+		if(!xxxws_fs_fisopened(&client->httpreq.file)){
+			xxxws_fs_fclose(&client->httpreq.file);
 		}
-		xxxws_fs_fremove(client->httpreq.file);
-		client->httpreq.fname[0] = '\0';
+		xxxws_fs_fremove(client->httpreq.file_name, client->httpreq.file_type);
+		client->httpreq.file_name[0] = '\0';
 	}
 }
 

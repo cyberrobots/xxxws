@@ -1,9 +1,17 @@
 #include "xxxws.h"
 
+#ifdef XXXWS_TCPIP_ENV_UNIX
+	#include <netinet/in.h>
+	#include <sys/socket.h>
+	#include <sys/wait.h>
+#endif
+
+#ifdef XXXWS_TCPIP_ENV_WINDOWS
+	#include <winsock2.h>
+	#include <windows.h>
+#endif
+
 #include <sys/types.h> 
-#include <netinet/in.h> 
-#include <sys/socket.h> 
-#include <sys/wait.h> 
 #include <fcntl.h> /* Added for the nonblocking socket */
 #include <strings.h> //bzero
 #include <errno.h> //bzero
@@ -292,21 +300,18 @@ char* xxxws_port_fs_temp(){
     return "temp";
 }
 
-xxxws_err_t xxxws_port_fs_fopen(char* path, uint8_t mode, xxxws_file_t* file){
+xxxws_err_t xxxws_port_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_mode_t mode, xxxws_file_t* file){
 
     //return XXXWS_ERR_FILENOTFOUND;
-    
-    /*
-    ** Check if this a ROM file
-    */
-    if(1){
-        (file)->type = XXXWS_FILE_TYPE_ROM;
+
+    if(type == XXXWS_FILE_TYPE_ROM){
         (file)->rom.ptr = (uint8_t*)test_file;
         (file)->rom.size = sizeof(test_file);// - 1;
         (file)->rom.pos = 0;
         return XXXWS_ERR_OK;
     }
     
+	return XXXWS_ERR_FILENOTFOUND;
 
 #ifdef XXXWS_FS_ENV_UNIX
     file->fd = fopen(path, "r");
@@ -394,7 +399,7 @@ xxxws_err_t xxxws_port_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t r
 #endif
 }
 
-xxxws_err_t xxxws_port_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz){
+xxxws_err_t xxxws_port_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
     
 	if(file->type == XXXWS_FILE_TYPE_ROM){
 		/*
@@ -440,7 +445,7 @@ void xxxws_port_fs_fclose(xxxws_file_t* file){
 #endif
 }
 
-void xxxws_port_fs_fremove(char* path){
+void xxxws_port_fs_fremove(char* path, xxxws_file_type_t type){
     XXXWS_ENSURE(file != NULL, "");
     
     if(file->type == XXXWS_FILE_TYPE_ROM){

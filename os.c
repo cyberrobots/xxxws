@@ -136,38 +136,93 @@ xxxws_err_t xxxws_socket_select(xxxws_socket_t* socket_readset[], uint32_t socke
 ** Filesystem
 ****************************************************************************************************************************
 */
-uint8_t xxxws_empty_file[] = "";
-
-xxxws_err_t xxxws_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_mode_t mode, xxxws_file_t* file){
-    xxxws_err_t err;
+xxxws_err_t xxxws_fs_fopen_write(char* path, xxxws_file_type_t type, xxxws_file_t* file){
+	xxxws_err_t err;
 	
-	file->type = type;
-
-	if(type == XXXWS_FILE_TYPE_RAM){
-		if(mode == XXXWS_FILE_MODE_READ){
-				
-		}else{
-			
-		}
-	}else{
-		/*
-		** Port layer is allowed to change the "file->type" either to ROM or DISK.
-		*/
-		err = xxxws_port_fs_fopen(path, mode, file);
-	}
-	
+	err = xxxws_port_fs_fopen(path, type, XXXWS_FILE_MODE_WRITE, file);
 	if(err == XXXWS_ERR_OK){
-		file->mode = mode;
+		file->type = type;
+		file->mode = XXXWS_FILE_MODE_WRITE;
 		file->status = XXXWS_FILE_STATUS_OPENED;
+		return XXXWS_ERR_OK;
+	}else if(err == XXXWS_ERR_TEMP){
+		return XXXWS_ERR_TEMP;
 	}else{
-		file->type = XXXWS_FILE_TYPE_NA;
-		file->mode = XXXWS_FILE_MODE_NA;
-		file->status = XXXWS_FILE_STATUS_CLOSED;
+		return  XXXWS_ERR_FATAL;
+	}
+}
+
+xxxws_err_t xxxws_fs_fopen_read(char* path, xxxws_file_t* file){
+    xxxws_err_t err;
+
+	/*
+	** Search in RAM
+	*/
+	//err = xxxws_fs_fopen_ram(path, XXXWS_FILE_MODE_READ, file);
+	err = XXXWS_ERR_FILENOTFOUND;
+	if(err == XXXWS_ERR_OK){
+		file->type = XXXWS_FILE_TYPE_RAM;
+		file->mode = XXXWS_FILE_MODE_READ;
+		file->status = XXXWS_FILE_STATUS_OPENED;
+		return XXXWS_ERR_OK;
+	}else if(err == XXXWS_ERR_FILENOTFOUND){
+		/* Continue */
+	}else if(err == XXXWS_ERR_TEMP){
+		goto handle_error;
+	}else{
 		err = XXXWS_ERR_FATAL;
+		goto handle_error;
 	}
 	
-    return err;
+	/*
+	** Search in ROM
+	*/
+	err = xxxws_port_fs_fopen(path, XXXWS_FILE_TYPE_ROM, XXXWS_FILE_MODE_READ , file);
+	if(err == XXXWS_ERR_OK){
+		file->type = XXXWS_FILE_TYPE_ROM;
+		file->mode = XXXWS_FILE_MODE_READ;
+		file->status = XXXWS_FILE_STATUS_OPENED;
+		return XXXWS_ERR_OK;
+	}else if(err == XXXWS_ERR_FILENOTFOUND){
+		/* Continue */
+	}else if(err == XXXWS_ERR_TEMP){
+		goto handle_error;
+	}else{
+		err = XXXWS_ERR_FATAL;
+		goto handle_error;
+	}
+	
+	/*
+	** Search in DISK
+	*/
+	err = xxxws_port_fs_fopen(path, XXXWS_FILE_TYPE_DISK, XXXWS_FILE_MODE_READ, file);
+	if(err == XXXWS_ERR_OK){
+		file->type = XXXWS_FILE_TYPE_DISK;
+		file->mode = XXXWS_FILE_MODE_READ;
+		file->status = XXXWS_FILE_STATUS_OPENED;
+		return XXXWS_ERR_OK;
+	}else if(err == XXXWS_ERR_FILENOTFOUND){
+		/* Continue */
+	}else if(err == XXXWS_ERR_TEMP){
+		goto handle_error;
+	}else{
+		err = XXXWS_ERR_FATAL;
+		goto handle_error;
+	}
+	
+	
+	handle_error:
+	
+	/*
+	** File was not found or we can not open it temporary due to memory limitations
+	*/
+	file->type = XXXWS_FILE_TYPE_NA;
+	file->mode = XXXWS_FILE_MODE_NA;
+	file->status = XXXWS_FILE_STATUS_CLOSED;
+	
+	return err; /* XXXWS_ERR_FILENOTFOUND / XXXWS_ERR_FATAL */
 }
+
 
 uint8_t xxxws_fs_fisopened(xxxws_file_t* file){
 	return (file->status == XXXWS_FILE_STATUS_OPENED);
@@ -236,6 +291,8 @@ xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbu
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
 		
+	*actualreadsize = 0;
+	
 	if(file->type == XXXWS_FILE_TYPE_RAM){
 
 	}else{
@@ -245,7 +302,13 @@ xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbu
     return err;
 }
 
-xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf){
+#if 0
+/*
+** This is to be called when we have already allocated a cbuf, and thus
+** RAM files will not require additional space and will never fail.
+*/
+xxxws_err_t xxxws_fs_fwrite_cbuf(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf, uint32_t* actual_write_sz){
+	uint32_t actual_write_sz;
     xxxws_err_t err;
     
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
@@ -254,10 +317,39 @@ xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf){
 	if(file->type == XXXWS_FILE_TYPE_RAM){
 
 	}else{
-		err = xxxws_port_fs_fwrite(file, readbuf, readbufsize, actualreadsize);
+		err = xxxws_port_fs_fwrite(file, write_cbuf->data, write_cbuf->len, &actual_write_sz);
 	}
     
-    return err;
+    if(err == XXXWS_ERR_OK){
+		return XXXWS_ERR_OK;
+	}else{
+		return XXXWS_ERR_FATAL;
+	}
+}
+#endif
+
+/*
+
+*/
+xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
+    xxxws_err_t err;
+    
+	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
+	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_WRITE, "");
+	
+	*actual_write_sz = 0;
+	
+	if(file->type == XXXWS_FILE_TYPE_RAM){
+
+	}else{
+		err = xxxws_port_fs_fwrite(file, write_buf, write_buf_sz, actual_write_sz);
+	}
+    
+	if(err == XXXWS_ERR_OK){
+		return XXXWS_ERR_OK;
+	}else{
+		return XXXWS_ERR_FATAL;
+	}
 }
 
 
@@ -274,13 +366,6 @@ void xxxws_fs_fclose(xxxws_file_t* file){
 	file->status = XXXWS_FILE_STATUS_CLOSED;
 }
 
-void xxxws_fs_fremove(char* path){
-    
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_CLOSED, "");
-	
-	if(file->type == XXXWS_FILE_TYPE_RAM){
+void xxxws_fs_fremove(char* path, xxxws_file_type_t type){
 
-	}else{
-		 xxxws_port_fs_fremove(path);
-	}
 }

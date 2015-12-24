@@ -34,9 +34,10 @@ struct xxxws_cbuf_t{
 
 xxxws_cbuf_t* xxxws_cbuf_alloc(uint8_t* data, uint32_t len);
 void xxxws_cbuf_free(xxxws_cbuf_t* cbuf);
-void xxxws_cbuf_list_add(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new);
+void xxxws_cbuf_list_append(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new);
 void xxxws_cbuf_list_free(xxxws_cbuf_t* cbuf_list);
 xxxws_cbuf_t* xxxws_cbuf_chain(xxxws_cbuf_t* cbuf0, xxxws_cbuf_t* cbuf1);
+xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf, uint32_t size);
 uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf, uint32_t index, char* str, uint8_t matchCase);
 void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1, char* str);
 uint32_t xxxws_cbuf_strstr(xxxws_cbuf_t* cbuf0, uint32_t index, char* str, uint8_t matchCase);
@@ -47,6 +48,7 @@ void cbuf_print(xxxws_cbuf_t* cbuf);
 ** HTTP
 */
 xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client);
+xxxws_err_t xxxws_http_response_build(xxxws_client_t* client);
 
 /*
 ****************************************************************************************************************************
@@ -142,6 +144,7 @@ typedef struct xxxws_file_t xxxws_file_t;
 struct xxxws_file_t{
     xxxws_file_type_t type;
     xxxws_file_status_t status;
+	xxxws_file_mode_t mode;
 	
     union{
         xxxws_file_ram_t ram;
@@ -150,12 +153,17 @@ struct xxxws_file_t{
     }descriptor;
 };
 
-xxxws_err_t xxxws_fs_fopen(char* path, xxxws_file_t* file);
+//xxxws_err_t xxxws_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_mode_t mode, xxxws_file_t* file);
+xxxws_err_t xxxws_fs_fopen_write(char* path, xxxws_file_type_t type, xxxws_file_t* file);
+xxxws_err_t xxxws_fs_fopen_read(char* path, xxxws_file_t* file);
+uint8_t xxxws_fs_fisopened(xxxws_file_t* file);
 xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize);
 xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos);
 xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
+xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
+xxxws_err_t xxxws_fs_fwrite_cbuf(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf);
 void xxxws_fs_fclose(xxxws_file_t* file);
-
+void xxxws_fs_fremove(char* path, xxxws_file_type_t type);
 
 
 
@@ -279,17 +287,24 @@ typedef enum{
 typedef struct xxxws_httpreq_t xxxws_httpreq_t;
 struct xxxws_httpreq_t{
     xxxws_cbuf_t* cbuf_list;
+	uint16_t cbuf_list_offset;
+	
 	uint8_t method;
 	char* url;
     uint16_t headers_len;
     uint32_t body_len;
     
-	char* fname;
+	
 	xxxws_file_t file;
+	xxxws_file_type_t file_type;
+	char* file_name;
+	
 	uint32_t unstored_len;
 	
     uint32_t range_start;
     uint32_t range_end;
+	
+	
 };
 
 /* 
@@ -328,6 +343,7 @@ struct xxxws_client_t{
     xxxws_httpresp_t httpresp;
     xxxws_mvc_t* mvc;
     xxxws_fstream_t* fstream;
+	uint8_t http_pipelining_enabled;
 };
 
 #endif
