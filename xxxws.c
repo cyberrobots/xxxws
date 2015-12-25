@@ -24,7 +24,7 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
         {
             //client->server = server;
             client->httpreq.cbuf_list = NULL;
-			client->httpreq.cbuf_list_offset = 0;
+			
 			
             client->httpreq.url = NULL;
 			strcpy(client->httpreq.file_name, "");
@@ -126,6 +126,8 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             XXXWS_LOG("[xxxws_schdlr_EV_ENTRY]");
             xxxws_schdlr_set_state_timer(4000);
             
+			client->httpreq.cbuf_list_offset = 0;
+			
             /*
             ** Don't break and continue to the READ event, asking a POLL
 			** to open the file and store the already received data.
@@ -780,7 +782,6 @@ void xxxws_client_cleanup(xxxws_client_t* client){
     if(client->httpreq.cbuf_list){
         xxxws_cbuf_list_free(client->httpreq.cbuf_list);
         client->httpreq.cbuf_list = NULL;
-		client->httpreq.cbuf_list_offset = 0;
     }
     
     if(client->httpreq.url){
