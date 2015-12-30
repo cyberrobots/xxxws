@@ -5,7 +5,7 @@ SOURCE_C = \
 	cbuf.c \
 	xxxws_port.c \
 	os.c \
-	fstream.c \
+	resource.c \
 	mvc.c \
 	http.c \
 	stats.c

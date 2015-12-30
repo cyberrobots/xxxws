@@ -185,8 +185,8 @@ uint8_t xxxws_mvc_get_errors(xxxws_client_t* client);
 /* 
 ** Pre-processors
 */
-typedef struct xxxws_fstream_t xxxws_fstream_t;
-struct xxxws_fstream_t{
+typedef struct xxxws_resource_t xxxws_resource_t;
+struct xxxws_resource_t{
     uint8_t openned;
 	xxxws_err_t (*open)(xxxws_client_t* client, uint32_t seekpos, uint32_t* filesz);
     xxxws_err_t (*read)(xxxws_client_t* client, uint8_t* readbuf, uint32_t readbufsz, uint32_t* readbufszactual);
@@ -195,9 +195,9 @@ struct xxxws_fstream_t{
     void* priv;
 };
 
-xxxws_err_t xxxws_fstream_open(xxxws_client_t* client, uint32_t seekpos, uint32_t* filesz);
-xxxws_err_t xxxws_fstream_read(xxxws_client_t* client, uint8_t* readbuf, uint32_t readbufsz, uint32_t* readbufszactual);
-xxxws_err_t xxxws_fstream_close(xxxws_client_t* client);
+xxxws_err_t xxxws_resource_open(xxxws_client_t* client, uint32_t seekpos, uint32_t* filesz);
+xxxws_err_t xxxws_resource_read(xxxws_client_t* client, uint8_t* readbuf, uint32_t readbufsz, uint32_t* readbufszactual);
+xxxws_err_t xxxws_resource_close(xxxws_client_t* client);
     
 
 /* 
@@ -342,7 +342,7 @@ struct xxxws_client_t{
     xxxws_httpreq_t httpreq;
     xxxws_httpresp_t httpresp;
     xxxws_mvc_t* mvc;
-    xxxws_fstream_t* fstream;
+    xxxws_resource_t* resource;
 	uint8_t http_pipelining_enabled;
 };
 

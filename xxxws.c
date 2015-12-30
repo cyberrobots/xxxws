@@ -35,7 +35,7 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
 			client->mvc = NULL;
 			
             client->httpresp.buf = NULL;
-            client->fstream = NULL;
+            client->resource = NULL;
 
             client->httpresp.status_code = 0;
             
@@ -272,10 +272,10 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             }
             
             /*
-            ** Release fstream
+            ** Release resource
             */
-            if(client->fstream){
-                xxxws_fstream_close(client);
+            if(client->resource){
+                xxxws_resource_close(client);
             }
             
 			#if 0
@@ -309,7 +309,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             xxxws_schdlr_set_state_poll(0);
             
             XXXWS_ENSURE(client->mvc == NULL, "");
-            XXXWS_ENSURE(client->fstream == NULL, "");
+            XXXWS_ENSURE(client->resource == NULL, "");
             
             /*
             ** Setup mvc
@@ -354,8 +354,8 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             ** Try to open it
             */
             uint32_t filesize;
-            if(!(client->fstream)){
-                err = xxxws_fstream_open(client, 0, &filesize);
+            if(!(client->resource)){
+                err = xxxws_resource_open(client, 0, &filesize);
                 switch(err){
                     case XXXWS_ERR_OK:
                         /*
@@ -371,7 +371,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                     case XXXWS_ERR_FILENOTFOUND:
                         /*
                         ** User-defined error page does not exist, send an empty body
-                        ** client->fstream will be NULL, and so client-mvc can be null
+                        ** client->resource will be NULL, and so client-mvc can be null
                         ** because no disk IO is going to be performed.
                         */
                         //XXXWS_LOG("[NOT FOUND!");
@@ -467,11 +467,11 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
             */
             uint32_t filesize;
             
-            if(!(client->fstream)){
+            if(!(client->resource)){
                 if((client->httpreq.range_start == xxxws_httpreq_range_WF) && (client->httpreq.range_end == xxxws_httpreq_range_WF)){
-                    err = xxxws_fstream_open(client, 0, &filesize);
+                    err = xxxws_resource_open(client, 0, &filesize);
                 }else{
-                    err = xxxws_fstream_open(client, client->httpreq.range_start, &filesize);
+                    err = xxxws_resource_open(client, client->httpreq.range_start, &filesize);
                 }
                 switch(err){
                     case XXXWS_ERR_OK:
@@ -646,7 +646,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             read_size = ((read_size) > (client->httpresp.buf_size - client->httpresp.buf_len)) ? client->httpresp.buf_size - client->httpresp.buf_len : read_size;      
             XXXWS_LOG("We have %u bytes, we can read %u more", client->httpresp.buf_len, read_size);
             if(read_size){
-                err = xxxws_fstream_read(client, &client->httpresp.buf[client->httpresp.buf_index + client->httpresp.buf_len], read_size, &read_size_actual);
+                err = xxxws_resource_read(client, &client->httpresp.buf[client->httpresp.buf_index + client->httpresp.buf_len], read_size, &read_size_actual);
                 if(err != XXXWS_ERR_OK){return;}
                 client->httpresp.buf_len += read_size_actual;
                 XXXWS_LOG("We just read %u bytes", read_size_actual);
@@ -685,9 +685,9 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             if(client->httpresp.size == 0){
                 XXXWS_LOG("The whole response was sent!!!");
 
-                if(client->fstream){
-                    xxxws_fstream_close(client);
-                    client->fstream = NULL;
+                if(client->resource){
+                    xxxws_resource_close(client);
+                    client->resource = NULL;
                 }
                 
                 xxxws_client_cleanup(client);
@@ -762,10 +762,10 @@ void xxxws_client_cleanup(xxxws_client_t* client){
     }
     
     /*
-    ** Release fstream
+    ** Release resource
     */
-    if(client->fstream){
-        xxxws_fstream_close(client);
+    if(client->resource){
+        xxxws_resource_close(client);
     }
     
     /*
