@@ -119,121 +119,150 @@ xxxws_err_t xxxws_resource_open_dynamic(xxxws_client_t* client, uint32_t seekpos
 }
 
 #if 0
-void swift(uint8_t buf, uint32_t swift_sz){
+typedef struct xxxws_resource_dynamic__t xxxws_resource_dynamic__t;
+struct xxxws_resource_dynamic__t{
+	uint8_t* working_buf;
 	
-	while(swift_sz){
-		*buf++ = *buf0++;
+	uint8_t search_buf[128];
+	uint16_t search_buf_index0;
+	uint16_t search_buf_index1;
+	
+	uint16_t replace_buf_index0;
+	uint16_t replace_buf_index1;
+	
+	uint8_t eof;
+};
+	
+int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_buf_sz, uint32_t* read_buf_sz_actual){
+	uint16_t read_buf_index;
+	uint16_t read_sz_actual;
+	uint16_t read_sz, copy_sz;
+	uint16_t k;
+	uint8_t* prefix = "<%=";
+	uint8_t* suffix = "%>";
+	uint16_t prefix_len = strlen(prefix);
+	uint16_t suffix_len = strlen(suffix);
+	char* suffix_ptr;
+	uint8_t request_read;
+	
+#if 1
+	static xxxws_resource_dynamic__t* priv = NULL;
+	if(!priv){
+		priv = malloc(sizeof(xxxws_resource_dynamic__t));
+		priv->working_buf = priv->search_buf;
+		priv->search_buf_index0 = 0;
+		priv->search_buf_index1 = 0;
+		priv->eof = 0;
 	}
-}
+#endif
 
-/*
-** Open file, inputStream(getData(), void* ptr, filterCb)
-** 
-*/
-
-#define XXXWS_PREFIX "<%="
-#define XXXWS_SUFIX "%>"
-xxxws_err_t xxxws_resource_read_dynamic(xxxws_client_t* client, uint8_t* readbuf, uint32_t readbufsz, uint32_t* readbufszactual){
-	uint16_t prefix_len;
-	uint8_t tmp_buf[128];
-	
-	
-	buf_index = 0;
-	
-	again:
-	
-	
-	struct {
-		uint8_t* working_buf;
-		
-		uint8_t search_buf[128];
-		uint16_t search_buf_index0;
-		uint16_t search_buf_index1;
-		
-		uint16_t replace_buf_index0;
-		uint16_t replace_buf_index1;
-		
-		uint8_t eof;
-	};
-	
+	*read_buf_sz_actual = 0;
+	request_read = 0;
+	read_buf_index = 0;
 	while(read_buf_index < read_buf_sz){
-		if(working_buf != search_buf){
-			copy_sz = read_buf_sz - read_buf_index > replace_buf_index1 - replace_buf_index0 ? replace_buf_index1 - replace_buf_index0 : read_buf_sz - read_buf_index;
-			memcpy(&read_buf[read_buf_index], &working_buf[replace_buf_index0], copy_sz);
-			read_buf_index += max_copy_sz;
-			replace_buf_index0 += max_copy_sz;
-			if(replace_buf_index0 == replace_buf_index1){
-				working_buf = buf;
+		if(priv->working_buf != priv->search_buf){
+			copy_sz = read_buf_sz - read_buf_index > priv->replace_buf_index1 - priv->replace_buf_index0 ? priv->replace_buf_index1 - priv->replace_buf_index0 : read_buf_sz - read_buf_index;
+			memcpy(&read_buf[read_buf_index], &priv->working_buf[priv->replace_buf_index0], copy_sz);
+			read_buf_index += copy_sz;
+			priv->replace_buf_index0 += copy_sz;
+			if(priv->replace_buf_index0 == priv->replace_buf_index1){
+				priv->working_buf = priv->search_buf;
+				printf("Switch from replace to search..\r\n");
 				continue;
 			}
 		}else{
-			if((request_read) || (search_buf_index0 == search_buf_index1)){
-				if(search_buf_index0){
-					for(k = 0; k < search_buf_index1 - search_buf_index0; k++){
-						buf[k] = buf[search_buf_index0 + k];
+			if((request_read) || (priv->search_buf_index0 == priv->search_buf_index1)){
+				if(priv->search_buf_index0){
+					for(k = 0; k < priv->search_buf_index1 - priv->search_buf_index0; k++){
+						priv->search_buf[k] = priv->search_buf[priv->search_buf_index0 + k];
 					}
 				}
-				search_buf_index1 -= search_buf_index0;
-				search_buf_index0 = 0;
-				read_sz = sizeof(search_buf) - search_buf_index1;
-				err = xxxws_fs_fread(file, &search_buf[search_buf_index1], read_sz, &read_sz_actual);
-				if(err != XXXWS_ERR_OK){
-					return err;
-				}
-				search_buf_index1 += read_sz_actual;
-				if(read_sz_actual < read_sz){
-					eof = 1;
+				priv->search_buf_index1 -= priv->search_buf_index0;
+				priv->search_buf_index0 = 0;
+				read_sz = sizeof(priv->search_buf) - priv->search_buf_index1;
+				//err = xxxws_fs_fread(file, &search_buf[search_buf_index1], read_sz, &read_sz_actual);
+				if(!priv->eof){
+					printf("Reading %u bytes starting from index %u\r\n", read_sz, priv->search_buf_index1);
+					int read_sz_actual_ = fread(&priv->search_buf[priv->search_buf_index1], 1, read_sz, file);
+					read_sz_actual = read_sz_actual_ > 0 ? read_sz_actual_ : 0;
+					printf("%u bytes read, Buffer is '%s'\r\n", read_sz_actual, &priv->search_buf[priv->search_buf_index0]);
+					
+					priv->search_buf_index1 += read_sz_actual;
+					if(read_sz_actual < read_sz){
+						printf("Eof!!\r\n");
+						priv->eof = 1;
+					}
+				}else{
+					//break;
 				}
 			}
-			if(search_buf[search_buf_index0] != prefix[0]){
-				read_buf[read_buf_index++] = search_buf[search_buf_index0++];
+			if(priv->eof && priv->search_buf_index0 == priv->search_buf_index1){
+				printf("Done!!\r\n");
+				break;
+			}
+			if(priv->search_buf[priv->search_buf_index0] != prefix[0]){
+				read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
+				printf("1Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 				continue;
 			}else{
 				/*
 				** This is going to delay the swift & read operation if only the
 				** first prefix character is matched (but not the whole prefix)
 				*/
-				if(search_buf_index1 - search_buf_index0 >= prefix_len){
-					if(memcmp(buf, prefix, prefix_len) != 0){
-						read_buf[read_buf_index++] = search_buf[search_buf_index0++];
+				if(priv->search_buf_index1 - priv->search_buf_index0 >= prefix_len){
+					if(memcmp(&priv->search_buf[priv->search_buf_index0], prefix, prefix_len) != 0){
+						read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
+						printf("2Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 						continue;
 					}
 				}
-				if(!eof && (search_buf_index1 - search_buf_index0 < sizeof(buf)){
+				if(!priv->eof && (priv->search_buf_index1 - priv->search_buf_index0 < sizeof(priv->search_buf))){
 					request_read = 1;
 					continue;
 				}
-				if(search_buf_index1 < prefix_len + 1 + suffix_len){
-					read_buf[read_buf_index++] = search_buf[search_buf_index0++];
+				if(priv->search_buf_index1 - priv->search_buf_index0 < prefix_len + suffix_len){
+					read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
+					printf("3Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 					continue;
 				}else{
-					if(memcmp(search_buf, prefix, prefix_len) == 0){
-						suffix_ptr = strstr(&search_buf[prefix_len], suffix);
+					if(memcmp(&priv->search_buf[priv->search_buf_index0], prefix, prefix_len) == 0){
+						suffix_ptr = strstr(&priv->search_buf[priv->search_buf_index0 + prefix_len], suffix);
 						if(!suffix_ptr){
-							read_buf[read_buf_index++] = search_buf[search_buf_index0++];
+							read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
+							printf("4Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 							continue;
 						}else{
-							pattern = &search_buf[prefix_len];
-							suffix_ptr = '\0';
+							char* variable_name = &priv->search_buf[priv->search_buf_index0 + prefix_len];
+							*suffix_ptr = '\0';
+							printf("variable_name is '%s'", variable_name);
 							/*
 							** Replace pattern with xyz
 							*/
-							working_buf = ....;
-							replace_buf_index0 = 0;
-							replace_buf_index1 = ...;
-							search_buf_index0 += &suffix_ptr[suffix_len] - search_buf;
+							priv->working_buf = "!!!!!!";
+							priv->replace_buf_index0 = 0;
+							priv->replace_buf_index1 = strlen((char*)priv->working_buf);
+							//uint16_t skip = (uint64_t) &suffix_ptr[suffix_len] - (uint64_t) &priv->search_buf[priv->search_buf_index0];
+							//priv->search_buf_index0 += skip;
+							printf("%u:%u\r\n", &priv->search_buf[priv->search_buf_index0], &suffix_ptr[suffix_len] );
+							for(k = 0; &priv->search_buf[priv->search_buf_index0 + k] < &suffix_ptr[suffix_len] ; k++){
+								printf("---- skipping %c\r\n", priv->search_buf[priv->search_buf_index0 + k]);
+							}
+							priv->search_buf_index0 += k;
+							//search_buf_index1 = k;
+							printf("Switch from search to replace.., skip is %u\r\n",k);
+							continue;
 						}
 					}else{
-						read_buf[read_buf_index++] = search_buf[search_buf_index0++];
+						read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
+						printf("5Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 						continue;
 					}
 				}
 			}
 		}
-	}
-	
-	
-	
+	};
+	*read_buf_sz_actual = read_buf_index;
+	return 0;
 }
 #endif
 
