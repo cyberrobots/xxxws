@@ -118,7 +118,7 @@ typedef enum{
 
 typedef struct xxxws_file_ram_t xxxws_file_ram_t;
 struct xxxws_file_ram_t{
-	xxxws_fs_ram_file_t* ram_file;
+	xxxws_ramfs_file_t* fd;
 	xxxws_file_mode_t mode;
 	//char* name;
 	//uint8_t handles;

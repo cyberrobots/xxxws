@@ -8,6 +8,7 @@ SOURCE_C = \
 	resource.c \
 	mvc.c \
 	http.c \
+	ramfs.c \
 	stats.c
 
 all:
