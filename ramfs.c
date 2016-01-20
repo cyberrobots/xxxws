@@ -37,7 +37,12 @@ xxxws_err_t xxxws_ramfs_fopen(char* path, xxxws_file_mode_t mode, xxxws_file_t* 
 		if(ramfs_file == &ramfs_files){
 			return XXXWS_ERR_FILENOTFOUND;
 		}
-			
+		
+		if(ramfs_file->write_handles){
+			/* File is opened for write, cannot read */
+			return XXXWS_ERR_FATAL;
+		}
+		
 		ramfs_file->read_handles++;
 		
 		file->ram.fd = ramfs_file;
@@ -58,7 +63,7 @@ xxxws_err_t xxxws_ramfs_fopen(char* path, xxxws_file_mode_t mode, xxxws_file_t* 
 					return err;
 				}	
 			}else{
-				/* File is opened, cannot remove */
+				/* File is opened for read/write, cannot remove */
 				return XXXWS_ERR_FATAL;
 			}
 		}
@@ -171,6 +176,20 @@ xxxws_err_t xxxws_ramfs_fwrite(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf){
     return XXXWS_ERR_OK;
 }
 
+xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
+    xxxws_err_t err;
+	xxxws_cbuf_t* cbuf;
+	
+	*actual_write_sz = 0;
+	
+	cbuf = xxxws_cbuf_alloc(write_buf, write_buf_sz);
+	if(!cbuf){
+		return XXXWS_ERR_OK;
+	}
+	
+	return xxxws_ramfs_fwrite(file, cbuf);
+	
+};
 
 void xxxws_ramfs_fclose(xxxws_file_t* file){
 	xxxws_err_t err;
