@@ -136,93 +136,85 @@ xxxws_err_t xxxws_socket_select(xxxws_socket_t* socket_readset[], uint32_t socke
 ** Filesystem
 ****************************************************************************************************************************
 */
-xxxws_err_t xxxws_fs_fopen_write(char* path, xxxws_file_type_t type, xxxws_file_t* file){
-	xxxws_err_t err;
-	
-	err = xxxws_port_fs_fopen(path, type, XXXWS_FILE_MODE_WRITE, file);
-	if(err == XXXWS_ERR_OK){
-		file->type = type;
-		file->mode = XXXWS_FILE_MODE_WRITE;
-		file->status = XXXWS_FILE_STATUS_OPENED;
-		return XXXWS_ERR_OK;
-	}else if(err == XXXWS_ERR_TEMP){
-		return XXXWS_ERR_TEMP;
-	}else{
-		return  XXXWS_ERR_FATAL;
+
+const xxxws_fs_partition_t fs_partitions[] = {
+	{
+		.vrt_root = XXXWS_FS_RAM_VRT_ROOT,
+		.abs_root = XXXWS_FS_RAM_ABS_ROOT,
+		.fopen = xxxws_fs_ram_fopen, 
+		.fsize = xxxws_fs_ram_fsize,
+		.fseek = xxxws_fs_ram_fseek,
+		.fread = xxxws_fs_ram_fread,
+		.fwrite = xxxws_fs_ram_fwrite,
+		.fclose = xxxws_fs_ram_fclose,
+		.fremove = xxxws_fs_ram_fremove
+	},
+	{
+		.vrt_root = XXXWS_FS_ROM_VRT_ROOT,
+		.abs_root = XXXWS_FS_ROM_ABS_ROOT,
+		.fopen = xxxws_port_fs_rom_fopen, 
+		.fsize = xxxws_port_fs_rom_fsize,
+		.fseek = xxxws_port_fs_rom_fseek,
+		.fread = xxxws_port_fs_rom_fread,
+		.fwrite = xxxws_port_fs_rom_fwrite,
+		.fclose = xxxws_port_fs_rom_fclose,
+		.fremove = xxxws_port_fs_rom_fremove
+	},
+	{
+		.vrt_root = XXXWS_FS_DISK_VRT_ROOT,
+		.abs_root = XXXWS_FS_DISK_ABS_ROOT,
+		.fopen = xxxws_port_fs_disk_fopen, 
+		.fsize = xxxws_port_fs_disk_fsize,
+		.fseek = xxxws_port_fs_disk_fseek,
+		.fread = xxxws_port_fs_disk_fread,
+		.fwrite = xxxws_port_fs_disk_fwrite,
+		.fclose = xxxws_port_fs_disk_fclose,
+		.fremove = xxxws_port_fs_disk_fremove
 	}
+};
+
+xxxws_fs_partition_t* xxxws_fs_get_partition(char* vrt_path){
+	uint16_t vrt_root_len;
+	uint8_t k;
+	for(k = 0; k < sizeof(fs_partitions)/sizeof(xxxws_fs_partition_t); k++){
+		vrt_root_len = strlen(fs_partitions[k].vrt_root);
+		if((strlen(vrt_path) >= vrt_root_len) && (memcmp(vrt_path, fs_partitions[k].vrt_root, vrt_root_len) == 0)){
+			return &fs_partitions[k];
+		}
+	}
+	return NULL;
 }
 
-xxxws_err_t xxxws_fs_fopen_read(char* path, xxxws_file_t* file){
-    xxxws_err_t err;
-
-	/*
-	** Search in RAM
-	*/
-	//err = xxxws_fs_fopen_ram(path, XXXWS_FILE_MODE_READ, file);
-	err = XXXWS_ERR_FILENOTFOUND;
+xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t* file){
+	xxxws_fs_partition_t* partition;
+	xxxws_err_t err;
+	char* abs_path;
+	
+	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ || file->mode == XXXWS_FILE_MODE_WRITE, "");
+	
+	partition = xxxws_fs_get_partition(vrt_path);
+	if(!partition){
+		return XXXWS_ERR_FILENOTFOUND;
+	}
+	
+	abs_path = &vrt_path[vrt_root_len];
+	err = fs_partitions[k].fopen(abs_path, mode, file);
 	if(err == XXXWS_ERR_OK){
-		file->type = XXXWS_FILE_TYPE_RAM;
-		file->mode = XXXWS_FILE_MODE_READ;
+		file->partition = partition;
+		file->mode = mode;
 		file->status = XXXWS_FILE_STATUS_OPENED;
 		return XXXWS_ERR_OK;
 	}else if(err == XXXWS_ERR_FILENOTFOUND){
 		/* Continue */
 	}else if(err == XXXWS_ERR_TEMP){
-		goto handle_error;
-	}else{
-		err = XXXWS_ERR_FATAL;
-		goto handle_error;
-	}
-	
-	/*
-	** Search in ROM
-	*/
-	err = xxxws_port_fs_fopen(path, XXXWS_FILE_TYPE_ROM, XXXWS_FILE_MODE_READ , file);
-	if(err == XXXWS_ERR_OK){
-		file->type = XXXWS_FILE_TYPE_ROM;
-		file->mode = XXXWS_FILE_MODE_READ;
-		file->status = XXXWS_FILE_STATUS_OPENED;
-		return XXXWS_ERR_OK;
-	}else if(err == XXXWS_ERR_FILENOTFOUND){
 		/* Continue */
-	}else if(err == XXXWS_ERR_TEMP){
-		goto handle_error;
 	}else{
 		err = XXXWS_ERR_FATAL;
-		goto handle_error;
 	}
-	
-	/*
-	** Search in DISK
-	*/
-	err = xxxws_port_fs_fopen(path, XXXWS_FILE_TYPE_DISK, XXXWS_FILE_MODE_READ, file);
-	if(err == XXXWS_ERR_OK){
-		file->type = XXXWS_FILE_TYPE_DISK;
-		file->mode = XXXWS_FILE_MODE_READ;
-		file->status = XXXWS_FILE_STATUS_OPENED;
-		return XXXWS_ERR_OK;
-	}else if(err == XXXWS_ERR_FILENOTFOUND){
-		/* Continue */
-	}else if(err == XXXWS_ERR_TEMP){
-		goto handle_error;
-	}else{
-		err = XXXWS_ERR_FATAL;
-		goto handle_error;
-	}
-	
-	
-	handle_error:
-	
-	/*
-	** File was not found or we can not open it temporary due to memory limitations
-	*/
-	file->type = XXXWS_FILE_TYPE_NA;
 	file->mode = XXXWS_FILE_MODE_NA;
 	file->status = XXXWS_FILE_STATUS_CLOSED;
-	
-	return err; /* XXXWS_ERR_FILENOTFOUND / XXXWS_ERR_FATAL */
+	return err;
 }
-
 
 uint8_t xxxws_fs_fisopened(xxxws_file_t* file){
 	return (file->status == XXXWS_FILE_STATUS_OPENED);
@@ -233,12 +225,9 @@ xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize){
 	
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
+	XXXWS_ENSURE(file->partition);
 	
-	if(file->type == XXXWS_FILE_TYPE_RAM){
-
-	}else{
-		err = xxxws_port_fs_fsize(file, filesize);
-	}
+	err = file->partition->fsize(file, filesize);
 	
     return err;
 }
@@ -248,12 +237,9 @@ xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
 	
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-		
-	if(file->type == XXXWS_FILE_TYPE_RAM){
-
-	}else{
-		err = xxxws_port_fs_fseek(file, seekpos);
-	}
+	XXXWS_ENSURE(file->partition);
+	
+	err = file->partition->fseek(file, seekpos);
 
     return err;
 }
@@ -261,72 +247,15 @@ xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
 xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
     xxxws_err_t err;
     
-#if 0
-    if(flags & XXXWS_FILE_TYPE_RAM){
-        cbuf = file->cbuf;
-        pos = file->pos;
-        while(cbuf){
-            if(pos < cbuf->len){break;}
-            pos -= cbuf->len;
-            cbuf = cbuf->next;
-        }
-        read_sz = 0;
-        while(cbuf){
-            if(read_sz == readbufsize){break;}
-            cpy_sz = (cbuf->len - pos > readbufsize - read_sz) ? readbufsize - read_sz : cbuf->len - pos;
-            memcpy(&readbuf[read_sz], &cbuf->data[pos], cpy_sz);
-            read_sz += cpy_sz;
-            pos += cpy_sz;
-            if(pos == cbuf->len){
-                cbuf = cbuf->next;
-                pos = 0;
-            }
-        }
-        file->pos += read_sz;
-        *actualreadsize = read_sz;
-        return XXXWS_ERR_OK;
-    }
-#endif
-	
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-		
-	*actualreadsize = 0;
+	XXXWS_ENSURE(file->partition);
 	
-	if(file->type == XXXWS_FILE_TYPE_RAM){
-
-	}else{
-		err = xxxws_port_fs_fread(file, readbuf, readbufsize, actualreadsize);
-	}
-
+	*actualreadsize = 0;
+	err = file->partition->fread(file, readbuf, readbufsize, actualreadsize);
+	
     return err;
 }
-
-#if 0
-/*
-** This is to be called when we have already allocated a cbuf, and thus
-** RAM files will not require additional space and will never fail.
-*/
-xxxws_err_t xxxws_fs_fwrite_cbuf(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf, uint32_t* actual_write_sz){
-	uint32_t actual_write_sz;
-    xxxws_err_t err;
-    
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_WRITE, "");
-		
-	if(file->type == XXXWS_FILE_TYPE_RAM){
-
-	}else{
-		err = xxxws_port_fs_fwrite(file, write_cbuf->data, write_cbuf->len, &actual_write_sz);
-	}
-    
-    if(err == XXXWS_ERR_OK){
-		return XXXWS_ERR_OK;
-	}else{
-		return XXXWS_ERR_FATAL;
-	}
-}
-#endif
 
 /*
 
@@ -336,15 +265,11 @@ xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t wri
     
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_WRITE, "");
+	XXXWS_ENSURE(file->partition);
 	
 	*actual_write_sz = 0;
-	
-	if(file->type == XXXWS_FILE_TYPE_RAM){
+	err = file->partition->fwrite(file, write_buf, write_buf_sz, actual_write_sz);
 
-	}else{
-		err = xxxws_port_fs_fwrite(file, write_buf, write_buf_sz, actual_write_sz);
-	}
-    
 	if(err == XXXWS_ERR_OK){
 		return XXXWS_ERR_OK;
 	}else{
@@ -354,18 +279,22 @@ xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t wri
 
 
 void xxxws_fs_fclose(xxxws_file_t* file){
-    
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-
-	if(file->type == XXXWS_FILE_TYPE_RAM){
-
-	}else{
-		xxxws_port_fs_fclose(file);
-	}
-    
+	XXXWS_ENSURE(file->partition);
+	
+	file->partition->fclose(file);
 	file->status = XXXWS_FILE_STATUS_CLOSED;
 }
 
-void xxxws_fs_fremove(char* path, xxxws_file_type_t type){
-
+void xxxws_fs_fremove(char* vrt_path){
+	xxxws_fs_partition_t* partition;
+	char* abs_path;
+	
+	partition = xxxws_fs_get_partition(vrt_path);
+	if(!partition){
+		return;
+	}
+	
+	abs_path = &vrt_path[vrt_root_len];
+	file->partition->fremove(abs_path);
 }

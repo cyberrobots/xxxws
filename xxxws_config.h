@@ -50,9 +50,60 @@
 */
 #define XXXWS_HTTP_RESPONSE_HEADER_MSG_BUF_SZ   (512)
 
-#define XXXWS_FS_ROOT "/"
+/*
+** Virtual and absolute paths for the RAM, ROM and DISK partitions. 
+**
+** When an HTTP request arrives and the virtual path of the requested reource is {XXXWS_FSxxx_VRT_ROOT}resource, 
+** the web server is going to open the file from the absolute path {XXXWS_FSxxx_ABS_ROOT}resource as follows:
+**
+** - XXXWS_FSxxx_VROOT is XXXWS_FSRAM_VRT_VROOT:
+**	 The file is located into the RAM partition, and xxxws_fsram_fopen will be called with path = {XXXWS_FSRAM_ABS_ROOT}resource
+**
+** - XXXWS_FSxxx_VROOT is XXXWS_FSROM_VRT_ROOT:
+**	 The file is located into the ROM partition, and xxxws_port_fsrom_fopen() will be called with path = {XXXWS_FSROM_ABS_ROOT}resource
+**
+** - XXXWS_FSxxx_VROOT is XXXWS_FSDISK_VRT_ROOT:
+**	 The file is located into the DISK partition, and xxxws_port_fsdisk_fopen() will be called with path = {XXXWS_FSDISK_ABS_ROOT}resource
+**
+** All web pages should refer to the virtual resource paths which provide a hint to the web server for the partition (RAM, ROM, DISK)
+** of the particular resource. The Web Server transforms the virtual path to an absolute path according to user preferences.
+*/
 
-#define XXXWS_FS_TEMP "temp/"
+/* 
+** RAM partition which provides an abstraction so data stored in either RAM/ROM/DISK can be handled in the same manner.
+** It is mostly used internally by the web server (for example to store small POST requests), but it can be used from user too.
+*/
+#define XXXWS_FS_RAM_VRT_ROOT	"/ram/"
+#define XXXWS_FS_RAM_ABS_ROOT	""
+
+/* 
+** ROM partition which refers to resources stored as "const" variables in the .text area of the program
+** (For example microcontroller's internal FLASH memory)
+*/
+#define XXXWS_FS_ROM_VRT_ROOT	"/rom/" 
+#define XXXWS_FS_ROM_ABS_ROOT	""
+
+/* 
+** DISK partition which refers to resources stored into the hard disk or external SDCARD.
+*/
+#define XXXWS_FS_DISK_VRT_ROOT	"/disk/"
+#define XXXWS_FS_DISK_ABS_ROOT	"/"
+
+/*
+** Specify the partition for the "index.html" web page. 
+**
+** When an HTTP request arrives and the requested resource is "/", the web server does not know the 
+** location of the index.html page (there is no XXXWS_FSROM_VRT_ROOT / XXXWS_FSDISK_VRT_ROOT prefix)
+** and it should be specified here:
+**
+** - XXXWS_FS_INDEX_HTML_VROOT == XXXWS_FSROM_VROOT : 
+**	 index.html is located to ROM, and will be requested as {XXXWS_FSROM_ABS_ROOT}index.html from xxxws_port_fsrom_fopen()
+**
+** - XXXWS_FS_INDEX_HTML_VROOT == XXXWS_FSDISK_VROOT : 
+**	 index.html is located to DISK, and will be requested as {XXXWS_FSDISK_ABS_ROOT}index.html from xxxws_port_fsdisk_fopen()
+*/
+#define XXXWS_FS_INDEX_HTML_VROOT	XXXWS_FSROM_VROOT
+
 
 /*
 ** 0   : use OS select()

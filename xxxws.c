@@ -147,13 +147,12 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         {
             XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
 			char request_file_name[64];
-			sprintf(request_file_name, XXXWS_FS_ROOT""XXXWS_FS_TEMP"%u",(uint32_t) &client);
+			sprintf(request_file_name, XXXWS_FS_RAM_VRT_ROOT"%u",(uint32_t) &client);
 			XXXWS_ENSURE(strlen(request_file_name) < sizeof(client->httpreq.file_name), "");
 			if(!xxxws_fs_fisopened(&client->httpreq.file)){
-				err = xxxws_fs_fopen_write(request_file_name, XXXWS_FILE_TYPE_RAM, &client->httpreq.file);
+				err = xxxws_fs_fopen_write(request_file_name, &client->httpreq.file);
 				switch(err){
 					case XXXWS_ERR_OK:
-						client->httpreq.file_type = XXXWS_FILE_TYPE_RAM;
 						strcpy(client->httpreq.file_name, request_file_name);
 						break;
 					case XXXWS_ERR_FATAL:

@@ -98,12 +98,18 @@ xxxws_err_t xxxws_socket_select(xxxws_socket_t* socket_readset[], uint32_t socke
 ** Filesystem
 ****************************************************************************************************************************
 */
-typedef enum{
-	XXXWS_FILE_TYPE_NA = 0,
-	XXXWS_FILE_TYPE_RAM,
-	XXXWS_FILE_TYPE_ROM,
-	XXXWS_FILE_TYPE_DISK,
-}xxxws_file_type_t;
+typedef struct xxxws_fs_partition_t xxxws_fs_partition_t;
+struct xxxws_fs_partition_t{
+	char* vrt_root;
+	char* abs_root;
+	xxxws_err_t (*fopen)(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file);
+	xxxws_err_t (*fsize)(xxxws_file_t* file, uint32_t* filesize);
+	xxxws_err_t (*fseek)(xxxws_file_t* file, uint32_t seekpos);
+	xxxws_err_t (*fread)(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
+	xxxws_err_t (*fwrite)(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
+	xxxws_err_t (*fclose)(xxxws_file_t* file);
+	xxxws_err_t (*fremove)(char* abs_path);
+};
 
 typedef enum{
 	XXXWS_FILE_STATUS_OPENED = 0,
@@ -146,7 +152,7 @@ struct xxxws_file_disk_t{
 
 typedef struct xxxws_file_t xxxws_file_t;
 struct xxxws_file_t{
-    xxxws_file_type_t type;
+	xxxws_fs_partition_t* partition;
     xxxws_file_status_t status;
 	xxxws_file_mode_t mode;
 	
@@ -157,17 +163,14 @@ struct xxxws_file_t{
     }descriptor;
 };
 
-//xxxws_err_t xxxws_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_mode_t mode, xxxws_file_t* file);
-xxxws_err_t xxxws_fs_fopen_write(char* path, xxxws_file_type_t type, xxxws_file_t* file);
-xxxws_err_t xxxws_fs_fopen_read(char* path, xxxws_file_t* file);
+xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t* file);
 uint8_t xxxws_fs_fisopened(xxxws_file_t* file);
 xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize);
 xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos);
 xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
 xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
-xxxws_err_t xxxws_fs_fwrite_cbuf(xxxws_file_t* file, xxxws_cbuf_t* write_cbuf);
 void xxxws_fs_fclose(xxxws_file_t* file);
-void xxxws_fs_fremove(char* path, xxxws_file_type_t type);
+void xxxws_fs_fremove(char* vrt_path);
 
 
 
@@ -300,7 +303,6 @@ struct xxxws_httpreq_t{
     
 	
 	xxxws_file_t file;
-	xxxws_file_type_t file_type;
 	char* file_name;
 	
 	uint32_t unstored_len;

@@ -33,10 +33,23 @@ xxxws_err_t xxxws_port_socket_select(xxxws_socket_t* socket_readset[], uint32_t 
 ** Filesystem
 ****************************************************************************************************************************
 */
-xxxws_err_t xxxws_port_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_mode_t mode, xxxws_file_t* file);
-xxxws_err_t xxxws_port_fs_fsize(xxxws_file_t* file, uint32_t* filesize);
-xxxws_err_t xxxws_port_fs_fseek(xxxws_file_t* file, uint32_t seekpos);
-xxxws_err_t xxxws_port_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
-xxxws_err_t xxxws_port_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
-void xxxws_port_fs_fclose(xxxws_file_t* file);
-void xxxws_port_fs_fremove(char* path, xxxws_file_type_t type);
+xxxws_err_t xxxws_port_fs_rom_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file);
+xxxws_err_t xxxws_port_fs_disk_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file);
+
+xxxws_err_t xxxws_port_fs_rom_fsize(xxxws_file_t* file, uint32_t* filesize);
+xxxws_err_t xxxws_port_fs_disk_fsize(xxxws_file_t* file, uint32_t* filesize);
+
+xxxws_err_t xxxws_port_fs_rom_fseek(xxxws_file_t* file, uint32_t seekpos);
+xxxws_err_t xxxws_port_fs_disk_fseek(xxxws_file_t* file, uint32_t seekpos);
+
+xxxws_err_t xxxws_port_fs_rom_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
+xxxws_err_t xxxws_port_fs_disk_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
+
+xxxws_err_t xxxws_port_fs_rom_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
+xxxws_err_t xxxws_port_fs_disk_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
+
+void xxxws_port_fs_rom_fclose(xxxws_file_t* file);
+void xxxws_port_fs_disk_fclose(xxxws_file_t* file);
+
+void xxxws_port_fs_rom_fremove(char* abs_path);
+void xxxws_port_fs_disk_fremove(char* abs_path);

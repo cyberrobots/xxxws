@@ -292,29 +292,24 @@ xxxws_err_t xxxws_port_socket_select(xxxws_socket_t* socket_readset[], uint32_t 
 */
 #include "fsdata.c"
 
-char* xxxws_port_fs_root(){
-    return "/";
+xxxws_err_t xxxws_port_fs_rom_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file){
+	if(mode == XXXWS_FILE_MODE_WRITE){
+		/*
+		** Usualy ROM files cannot be written
+		*/
+		return XXXWS_ERR_FATAL;
+	}
+	
+	(file)->rom.ptr = (uint8_t*)test_file;
+	(file)->rom.size = sizeof(test_file);// - 1;
+	(file)->rom.pos = 0;
+	return XXXWS_ERR_OK;
+	//return XXXWS_ERR_FILENOTFOUND;
 }
 
-char* xxxws_port_fs_temp(){
-    return "temp";
-}
-
-xxxws_err_t xxxws_port_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_mode_t mode, xxxws_file_t* file){
-
-    //return XXXWS_ERR_FILENOTFOUND;
-
-    if(type == XXXWS_FILE_TYPE_ROM){
-        (file)->rom.ptr = (uint8_t*)test_file;
-        (file)->rom.size = sizeof(test_file);// - 1;
-        (file)->rom.pos = 0;
-        return XXXWS_ERR_OK;
-    }
-    
-	return XXXWS_ERR_FILENOTFOUND;
-
+xxxws_err_t xxxws_port_fs_disk_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file){
 #ifdef XXXWS_FS_ENV_UNIX
-    file->fd = fopen(path, "r");
+    file->fd = fopen(abs_path, "r");
     if(!file->fd){
         return XXXWS_ERR_FILENOTFOUND;
     }
@@ -325,8 +320,8 @@ xxxws_err_t xxxws_port_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_m
     if(!(file = xxxws_mem_malloc(sizeof(FIL))){
     return XXXWS_ERR_TEMP;
 }
-    fr = f_open(file, path, FA_READ);
-    if((res = f_open(file, path, FA_READ)) != FR_OK){
+    fr = f_open(file, abs_path, FA_READ);
+    if((res = f_open(file, abs_path, FA_READ)) != FR_OK){
         xxxws_mem_free(file);
         return XXXWS_ERR_FILENOTFOUND;
     }
@@ -337,14 +332,13 @@ xxxws_err_t xxxws_port_fs_fopen(char* path, xxxws_file_type_t type, xxxws_file_m
 #endif
 }
 
-xxxws_err_t xxxws_port_fs_fsize(xxxws_file_t* file, uint32_t* filesize){
+xxxws_err_t xxxws_port_fs_rom_fsize(xxxws_file_t* file, uint32_t* filesize){
+	*filesize = file->rom.size;
+	return XXXWS_ERR_OK;
+}
+
+xxxws_err_t xxxws_port_fs_disk_fsize(xxxws_file_t* file, uint32_t* filesize){
     *filesize = 0;
-    
-    if(file->type == XXXWS_FILE_TYPE_ROM){
-        *filesize = file->rom.size;
-        return XXXWS_ERR_OK;
-    }
-    
 #ifdef XXXWS_FS_ENV_UNIX
     uint32_t seekpos = ftell(file->fd);
 
@@ -361,12 +355,13 @@ xxxws_err_t xxxws_port_fs_fsize(xxxws_file_t* file, uint32_t* filesize){
 #endif
 }
 
-xxxws_err_t xxxws_port_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
-    if(file->type == XXXWS_FILE_TYPE_ROM){
-        file->rom.pos = seekpos;
-        return XXXWS_ERR_OK;
-    }
-    
+
+xxxws_err_t xxxws_port_fs_rom_fseek(xxxws_file_t* file, uint32_t seekpos){
+	file->rom.pos = seekpos;
+	return XXXWS_ERR_OK;
+}
+
+xxxws_err_t xxxws_port_fs_disk_fseek(xxxws_file_t* file, uint32_t seekpos){
 #ifdef XXXWS_FS_ENV_UNIX
     fseek(file->fd, seekpos, SEEK_SET);
     return XXXWS_ERR_OK;
@@ -377,18 +372,17 @@ xxxws_err_t xxxws_port_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
 #endif
 }
 
-xxxws_err_t xxxws_port_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
+xxxws_err_t xxxws_port_fs_rom_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
+	uint32_t read_size;
+	read_size = (readbufsize > file->rom.size - file->rom.pos) ? file->rom.size - file->rom.pos : readbufsize;
+	memcpy(readbuf, &file->rom.ptr[file->rom.pos], read_size);
+	file->rom.pos += read_size;
+	*actualreadsize = read_size;
+	return XXXWS_ERR_OK;
+}
+
+xxxws_err_t xxxws_port_fs_disk_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
     *actualreadsize = 0;
-    
-    if(file->type == XXXWS_FILE_TYPE_ROM){
-        uint32_t read_size;
-        read_size = (readbufsize > file->rom.size - file->rom.pos) ? file->rom.size - file->rom.pos : readbufsize;
-        memcpy(readbuf, &file->rom.ptr[file->rom.pos], read_size);
-        file->rom.pos += read_size;
-        *actualreadsize = read_size;
-        return XXXWS_ERR_OK;
-    }
-    
 #ifdef XXXWS_FS_ENV_UNIX
     *actualreadsize = fread(readbuf, 1, readbufsize, file->fd);
     return XXXWS_ERR_OK;
@@ -399,19 +393,13 @@ xxxws_err_t xxxws_port_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t r
 #endif
 }
 
-xxxws_err_t xxxws_port_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
-    
-	if(file->type == XXXWS_FILE_TYPE_ROM){
-		/*
-		** ROM memory does not support write operation.
-		** In case of an MCU with internal/external FLASH that does support write operation
-		** you could perform the write operation and return XXXWS_ERR_OK.
-		*/
-		return XXXWS_ERR_FATAL;
-	}
-	
+xxxws_err_t xxxws_port_fs_rom_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz)
+	return XXXWS_ERR_FATAL;
+}
+
+xxxws_err_t xxxws_port_fs_disk_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
 #ifdef XXXWS_FS_ENV_UNIX
-int written;
+	int written;
 	written = fwrite(write_buf, 1, write_buf_sz, file->fd);
 	if(written == write_buf_sz){
 		return XXXWS_ERR_OK;
@@ -425,16 +413,13 @@ int written;
 #endif
 }
 
-void xxxws_port_fs_fclose(xxxws_file_t* file){
-    XXXWS_ENSURE(file != NULL, "");
-    
-    if(file->type == XXXWS_FILE_TYPE_ROM){
-		/*
-		** No special handling is needed.
-		*/
-        return;
-    }
-    
+void xxxws_port_fs_rom_fclose(xxxws_file_t* file){
+	/*
+	** No special handling is needed.
+	*/
+}
+
+void xxxws_port_fs_disk_fclose(xxxws_file_t* file){
 #ifdef XXXWS_FS_ENV_UNIX
     fclose(file->fd);
     return;
@@ -445,18 +430,16 @@ void xxxws_port_fs_fclose(xxxws_file_t* file){
 #endif
 }
 
-void xxxws_port_fs_fremove(char* path, xxxws_file_type_t type){
-    XXXWS_ENSURE(file != NULL, "");
-    
-    if(file->type == XXXWS_FILE_TYPE_ROM){
-        return;
-    }
-    
+void xxxws_port_fs_rom_fremove(char* abs_path){
+	
+}
+
+void xxxws_port_fs_disk_fremove(char* abs_path){
 #ifdef XXXWS_FS_ENV_UNIX
-    remove(path);
+    remove(abs_path);
     return;
 #elif XXXWS_FS_ENV_FATAFS
-    f_unlink(path);
+    f_unlink(abs_path);
 	return;
 #else
 	return;

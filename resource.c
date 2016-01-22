@@ -167,7 +167,7 @@ int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_bu
 			priv->replace_buf_index0 += copy_sz;
 			if(priv->replace_buf_index0 == priv->replace_buf_index1){
 				priv->working_buf = priv->search_buf;
-				printf("Switch from replace to search..\r\n");
+				//printf("Switch from replace to search..\r\n");
 				continue;
 			}
 		}else{
@@ -182,14 +182,14 @@ int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_bu
 				read_sz = sizeof(priv->search_buf) - priv->search_buf_index1;
 				//err = xxxws_fs_fread(file, &search_buf[search_buf_index1], read_sz, &read_sz_actual);
 				if(!priv->eof){
-					printf("Reading %u bytes starting from index %u\r\n", read_sz, priv->search_buf_index1);
+					//printf("Reading %u bytes starting from index %u\r\n", read_sz, priv->search_buf_index1);
 					int read_sz_actual_ = fread(&priv->search_buf[priv->search_buf_index1], 1, read_sz, file);
 					read_sz_actual = read_sz_actual_ > 0 ? read_sz_actual_ : 0;
-					printf("%u bytes read, Buffer is '%s'\r\n", read_sz_actual, &priv->search_buf[priv->search_buf_index0]);
+					//printf("%u bytes read, Buffer is '%s'\r\n", read_sz_actual, &priv->search_buf[priv->search_buf_index0]);
 					
 					priv->search_buf_index1 += read_sz_actual;
 					if(read_sz_actual < read_sz){
-						printf("Eof!!\r\n");
+						//printf("Eof!!\r\n");
 						priv->eof = 1;
 					}
 				}else{
@@ -197,12 +197,12 @@ int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_bu
 				}
 			}
 			if(priv->eof && priv->search_buf_index0 == priv->search_buf_index1){
-				printf("Done!!\r\n");
+				//printf("Done!!\r\n");
 				break;
 			}
 			if(priv->search_buf[priv->search_buf_index0] != prefix[0]){
 				read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-				printf("1Copying '%c'\r\n", read_buf[read_buf_index - 1]);
+				//printf("1Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 				continue;
 			}else{
 				/*
@@ -212,7 +212,7 @@ int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_bu
 				if(priv->search_buf_index1 - priv->search_buf_index0 >= prefix_len){
 					if(memcmp(&priv->search_buf[priv->search_buf_index0], prefix, prefix_len) != 0){
 						read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-						printf("2Copying '%c'\r\n", read_buf[read_buf_index - 1]);
+						//printf("2Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 						continue;
 					}
 				}
@@ -234,7 +234,7 @@ int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_bu
 						}else{
 							char* variable_name = &priv->search_buf[priv->search_buf_index0 + prefix_len];
 							*suffix_ptr = '\0';
-							printf("variable_name is '%s'", variable_name);
+							//printf("variable_name is '%s'", variable_name);
 							/*
 							** Replace pattern with xyz
 							*/
@@ -243,18 +243,18 @@ int xxxws_resource_read_dynamic(FILE * file, uint8_t* read_buf, uint32_t read_bu
 							priv->replace_buf_index1 = strlen((char*)priv->working_buf);
 							//uint16_t skip = (uint64_t) &suffix_ptr[suffix_len] - (uint64_t) &priv->search_buf[priv->search_buf_index0];
 							//priv->search_buf_index0 += skip;
-							printf("%u:%u\r\n", &priv->search_buf[priv->search_buf_index0], &suffix_ptr[suffix_len] );
+							//printf("%u:%u\r\n", &priv->search_buf[priv->search_buf_index0], &suffix_ptr[suffix_len] );
 							for(k = 0; &priv->search_buf[priv->search_buf_index0 + k] < &suffix_ptr[suffix_len] ; k++){
 								printf("---- skipping %c\r\n", priv->search_buf[priv->search_buf_index0 + k]);
 							}
 							priv->search_buf_index0 += k;
 							//search_buf_index1 = k;
-							printf("Switch from search to replace.., skip is %u\r\n",k);
+							//printf("Switch from search to replace.., skip is %u\r\n",k);
 							continue;
 						}
 					}else{
 						read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-						printf("5Copying '%c'\r\n", read_buf[read_buf_index - 1]);
+						//printf("5Copying '%c'\r\n", read_buf[read_buf_index - 1]);
 						continue;
 					}
 				}
