@@ -3,8 +3,15 @@
 
 
 
-xxxws_fs_ram_file_t fs_ram_files;
+xxxws_fs_ram_file_t fs_ram_files ={
+    .name = NULL,
+	.cbuf = NULL,
+	.read_handles = 0,
+	.write_handles = 0,
+    .next = &fs_ram_files
+};
 
+#if 0
 void xxxws_fs_ram_init(){
 	fs_ram_files.name = NULL;
 	fs_ram_files.cbuf = NULL;
@@ -12,6 +19,7 @@ void xxxws_fs_ram_init(){
 	fs_ram_files.write_handles = 0;
 	fs_ram_files.next = &fs_ram_files;
 }
+#endif
 
 xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file){
 	xxxws_err_t err;
