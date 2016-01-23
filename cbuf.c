@@ -20,7 +20,7 @@ void xxxws_cbuf_free(xxxws_cbuf_t* cbuf){
 	xxxws_mem_free(cbuf);
 }
 
-void xxxws_cbuf_list_add(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new){
+void xxxws_cbuf_list_append(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new){
 	xxxws_cbuf_t* cbuf;
 	if(*cbuf_list == NULL) {
 		*cbuf_list = cbuf_new;

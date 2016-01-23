@@ -300,17 +300,17 @@ xxxws_err_t xxxws_port_fs_rom_fopen(char* abs_path, xxxws_file_mode_t mode, xxxw
 		return XXXWS_ERR_FATAL;
 	}
 	
-	(file)->rom.ptr = (uint8_t*)test_file;
-	(file)->rom.size = sizeof(test_file);// - 1;
-	(file)->rom.pos = 0;
+	(file)->descriptor.rom.ptr = (uint8_t*)test_file;
+	(file)->descriptor.rom.size = sizeof(test_file);// - 1;
+	(file)->descriptor.rom.pos = 0;
 	return XXXWS_ERR_OK;
 	//return XXXWS_ERR_FILENOTFOUND;
 }
 
 xxxws_err_t xxxws_port_fs_disk_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file){
 #ifdef XXXWS_FS_ENV_UNIX
-    file->fd = fopen(abs_path, "r");
-    if(!file->fd){
+    file->descriptor.disk.fd = fopen(abs_path, "r");
+    if(!file->descriptor.disk.fd){
         return XXXWS_ERR_FILENOTFOUND;
     }
     return XXXWS_ERR_OK;
@@ -333,19 +333,21 @@ xxxws_err_t xxxws_port_fs_disk_fopen(char* abs_path, xxxws_file_mode_t mode, xxx
 }
 
 xxxws_err_t xxxws_port_fs_rom_fsize(xxxws_file_t* file, uint32_t* filesize){
-	*filesize = file->rom.size;
+    xxxws_file_rom_t* file_rom = &file->descriptor.rom;
+	*filesize = file_rom->size;
 	return XXXWS_ERR_OK;
 }
 
 xxxws_err_t xxxws_port_fs_disk_fsize(xxxws_file_t* file, uint32_t* filesize){
     *filesize = 0;
 #ifdef XXXWS_FS_ENV_UNIX
-    uint32_t seekpos = ftell(file->fd);
+    xxxws_file_disk_t* file_disk = &file->descriptor.disk;
+    uint32_t seekpos = ftell(file_disk->fd);
 
-    fseek(file->fd, 0L, SEEK_END);
-    *filesize = ftell(file->fd);
+    fseek(file_disk->fd, 0L, SEEK_END);
+    *filesize = ftell(file_disk->fd);
     
-    fseek(file->fd, seekpos, SEEK_SET);
+    fseek(file_disk->fd, seekpos, SEEK_SET);
 
     return XXXWS_ERR_OK;
 #elif XXXWS_FS_ENV_FATAFS
@@ -357,13 +359,15 @@ xxxws_err_t xxxws_port_fs_disk_fsize(xxxws_file_t* file, uint32_t* filesize){
 
 
 xxxws_err_t xxxws_port_fs_rom_fseek(xxxws_file_t* file, uint32_t seekpos){
-	file->rom.pos = seekpos;
+    xxxws_file_rom_t* file_rom = &file->descriptor.rom;
+	file_rom->pos = seekpos;
 	return XXXWS_ERR_OK;
 }
 
 xxxws_err_t xxxws_port_fs_disk_fseek(xxxws_file_t* file, uint32_t seekpos){
 #ifdef XXXWS_FS_ENV_UNIX
-    fseek(file->fd, seekpos, SEEK_SET);
+    xxxws_file_disk_t* file_disk = &file->descriptor.disk;
+    fseek(file_disk->fd, seekpos, SEEK_SET);
     return XXXWS_ERR_OK;
 #elif XXXWS_EXT_FS_ENV_FATAFS
     return XXXWS_ERR_FATAL;
@@ -374,9 +378,11 @@ xxxws_err_t xxxws_port_fs_disk_fseek(xxxws_file_t* file, uint32_t seekpos){
 
 xxxws_err_t xxxws_port_fs_rom_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
 	uint32_t read_size;
-	read_size = (readbufsize > file->rom.size - file->rom.pos) ? file->rom.size - file->rom.pos : readbufsize;
-	memcpy(readbuf, &file->rom.ptr[file->rom.pos], read_size);
-	file->rom.pos += read_size;
+    xxxws_file_rom_t* file_rom = &file->descriptor.rom;
+    
+	read_size = (readbufsize > file_rom->size - file_rom->pos) ? file_rom->size - file_rom->pos : readbufsize;
+	memcpy(readbuf, &file->descriptor.rom.ptr[file_rom->pos], read_size);
+	file_rom->pos += read_size;
 	*actualreadsize = read_size;
 	return XXXWS_ERR_OK;
 }
@@ -384,7 +390,8 @@ xxxws_err_t xxxws_port_fs_rom_fread(xxxws_file_t* file, uint8_t* readbuf, uint32
 xxxws_err_t xxxws_port_fs_disk_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
     *actualreadsize = 0;
 #ifdef XXXWS_FS_ENV_UNIX
-    *actualreadsize = fread(readbuf, 1, readbufsize, file->descriptor.fd);
+    xxxws_file_disk_t* file_disk = &file->descriptor.disk;
+    *actualreadsize = fread(readbuf, 1, readbufsize, file_disk->fd);
     return XXXWS_ERR_OK;
 #elif XXXWS_FS_ENV_FATAFS
     return XXXWS_ERR_FATAL;
@@ -400,7 +407,9 @@ xxxws_err_t xxxws_port_fs_rom_fwrite(xxxws_file_t* file, uint8_t* write_buf, uin
 xxxws_err_t xxxws_port_fs_disk_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
 #ifdef XXXWS_FS_ENV_UNIX
 	int written;
-	written = fwrite(write_buf, 1, write_buf_sz, file->fd);
+    xxxws_file_disk_t* file_disk = &file->descriptor.disk;
+    
+	written = fwrite(write_buf, 1, write_buf_sz, file_disk->fd);
 	if(written == write_buf_sz){
 		return XXXWS_ERR_OK;
 	}else{
@@ -422,7 +431,8 @@ xxxws_err_t xxxws_port_fs_rom_fclose(xxxws_file_t* file){
 
 xxxws_err_t xxxws_port_fs_disk_fclose(xxxws_file_t* file){
 #ifdef XXXWS_FS_ENV_UNIX
-    fclose(file->fd);
+    xxxws_file_disk_t* file_disk = &file->descriptor.disk;
+    fclose(file_disk->fd);
     return XXXWS_ERR_OK;
 #elif XXXWS_FS_ENV_FATAFS
     return XXXWS_ERR_OK;
@@ -432,7 +442,7 @@ xxxws_err_t xxxws_port_fs_disk_fclose(xxxws_file_t* file){
 }
 
 xxxws_err_t xxxws_port_fs_rom_fremove(char* abs_path){
-	
+	return XXXWS_ERR_OK;
 }
 
 xxxws_err_t xxxws_port_fs_disk_fremove(char* abs_path){

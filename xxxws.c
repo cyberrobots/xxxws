@@ -147,10 +147,11 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         {
             XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
 			char request_file_name[64];
-			sprintf(request_file_name, XXXWS_FS_RAM_VRT_ROOT"%u",(uint32_t) &client);
+            static uint32_t unique_id = 0;
+			sprintf(request_file_name, XXXWS_FS_RAM_VRT_ROOT"%u", unique_id++);
 			XXXWS_ENSURE(strlen(request_file_name) < sizeof(client->httpreq.file_name), "");
 			if(!xxxws_fs_fisopened(&client->httpreq.file)){
-				err = xxxws_fs_fopen_write(request_file_name, &client->httpreq.file);
+				err = xxxws_fs_fopen(request_file_name, XXXWS_FILE_MODE_WRITE, &client->httpreq.file);
 				switch(err){
 					case XXXWS_ERR_OK:
 						strcpy(client->httpreq.file_name, request_file_name);
@@ -792,7 +793,7 @@ void xxxws_client_cleanup(xxxws_client_t* client){
 		if(!xxxws_fs_fisopened(&client->httpreq.file)){
 			xxxws_fs_fclose(&client->httpreq.file);
 		}
-		xxxws_fs_fremove(client->httpreq.file_name, client->httpreq.file_type);
+		xxxws_fs_fremove(client->httpreq.file_name);
 		client->httpreq.file_name[0] = '\0';
 	}
 }

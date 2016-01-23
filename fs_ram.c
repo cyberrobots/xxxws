@@ -96,7 +96,7 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 	return XXXWS_ERR_FATAL;
 }
 
-xxxws_err_t xxxws_fs_ram_size(xxxws_file_t* file, uint32_t* filesize){
+xxxws_err_t xxxws_fs_ram_fsize(xxxws_file_t* file, uint32_t* filesize){
 	xxxws_cbuf_t* cbuf_next;
     xxxws_fs_ram_file_t* fs_ram_file;
     xxxws_file_ram_t* file_ram;
@@ -120,7 +120,7 @@ xxxws_err_t xxxws_fs_ram_fseek(xxxws_file_t* file, uint32_t seekpos){
 
     file_ram = &file->descriptor.ram;
 	
-	err = xxxws_fs_ram_size(file, &filesize);
+	err = xxxws_fs_ram_fsize(file, &filesize);
 	if(err != XXXWS_ERR_OK){
 		return err;
 	}
