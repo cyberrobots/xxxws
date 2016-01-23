@@ -184,6 +184,7 @@ xxxws_err_t xxxws_fs_ram_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t
 xxxws_err_t xxxws_fs_ram_fclose(xxxws_file_t* file);
 xxxws_err_t xxxws_fs_ram_fremove(char* vrt_path);
 
+void xxxws_fs_finit(xxxws_file_t* file);
 xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t* file);
 uint8_t xxxws_fs_fisopened(xxxws_file_t* file);
 xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize);
@@ -324,7 +325,7 @@ struct xxxws_httpreq_t{
     
 	
 	xxxws_file_t file;
-	char* file_name;
+	char file_name[15];
 	
 	uint32_t unstored_len;
 	

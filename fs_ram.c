@@ -25,7 +25,8 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 	xxxws_err_t err;
     xxxws_fs_ram_file_t* fs_ram_file;
 
-	
+	XXXWS_LOG("Opening RAM file with name %s", abs_path);
+    
 	/*
 	* Findout if file exists
 	*/
@@ -62,6 +63,7 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 		* If file exists, remove it first
 		*/
 		if(fs_ram_file != &fs_ram_files){
+            XXXWS_LOG("Ram file exists, removing it");
 			if(fs_ram_file->read_handles == 0 && fs_ram_file->write_handles == 0){
 				err = xxxws_fs_ram_fremove(abs_path);
 				if(err != XXXWS_ERR_OK){
@@ -69,10 +71,12 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 				}	
 			}else{
 				/* File is opened for read/write, cannot remove */
+                XXXWS_LOG("File is already opened..");
 				return XXXWS_ERR_FATAL;
 			}
 		}
 		
+        XXXWS_LOG("allocating new ram file..");
 		fs_ram_file = xxxws_mem_malloc(sizeof(xxxws_fs_ram_file_t));
 		if(!fs_ram_file){
 			return XXXWS_ERR_TEMP;
@@ -98,6 +102,8 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 		fs_ram_file->next = fs_ram_files.next;
 		fs_ram_files.next = fs_ram_file;
 
+        XXXWS_LOG("Ram file created..");
+        
 		return XXXWS_ERR_OK;
 	}
 

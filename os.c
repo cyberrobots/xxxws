@@ -185,12 +185,18 @@ xxxws_fs_partition_t* xxxws_fs_get_partition(char* vrt_path){
 	return NULL;
 }
 
+void xxxws_fs_finit(xxxws_file_t* file){
+    file->mode = XXXWS_FILE_MODE_NA;
+	file->status = XXXWS_FILE_STATUS_CLOSED;
+    file->partition = NULL;
+}
+
 xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t* file){
 	xxxws_fs_partition_t* partition;
 	xxxws_err_t err;
 	char* abs_path;
 	
-	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ || file->mode == XXXWS_FILE_MODE_WRITE, "");
+	XXXWS_ENSURE(mode == XXXWS_FILE_MODE_READ || mode == XXXWS_FILE_MODE_WRITE, "");
 	
 	partition = xxxws_fs_get_partition(vrt_path);
 	if(!partition){
@@ -285,7 +291,10 @@ xxxws_err_t xxxws_fs_fclose(xxxws_file_t* file){
 	XXXWS_ENSURE(file->partition, "");
 	
 	err = file->partition->fclose(file);
+    
+    file->mode = XXXWS_FILE_MODE_NA;
 	file->status = XXXWS_FILE_STATUS_CLOSED;
+    file->partition = NULL;
     
     return err;
 }

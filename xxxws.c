@@ -30,6 +30,9 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
 			strcpy(client->httpreq.file_name, "");
 			client->httpreq.range_start = xxxws_httpreq_range_WF;
             client->httpreq.range_end = xxxws_httpreq_range_WF;
+            
+            xxxws_fs_finit(&client->httpreq.file); // mayby rename to freset ?
+            //client->httpreq.file.status = XXXWS_FILE_STATUS_CLOSED;
             //xxxws_fs_freset(client->httpreq.file);
 			
 			client->mvc = NULL;
@@ -74,6 +77,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
             XXXWS_LOG("[xxxws_schdlr_EV_READ]");
 
             cbuf = xxxws_schdlr_socket_read();
+            //XXXWS_LOG("cbuf->len = %u", cbuf->len);
             xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
             cbuf_print(client->httpreq.cbuf_list);
             
@@ -82,6 +86,8 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
                 case XXXWS_ERR_OK:
                     XXXWS_LOG("HTTP Headers received!");
 					xxxws_schdlr_state_enter(xxxws_state_http_request_store);
+                    break;
+                case XXXWS_ERR_TEMP:
                     break;
                 case XXXWS_ERR_FATAL:
                     xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -156,6 +162,9 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 					case XXXWS_ERR_OK:
 						strcpy(client->httpreq.file_name, request_file_name);
 						break;
+                    case XXXWS_ERR_TEMP:
+                        xxxws_schdlr_set_state_poll(0);
+                        break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
 						break;
