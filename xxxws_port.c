@@ -384,7 +384,7 @@ xxxws_err_t xxxws_port_fs_rom_fread(xxxws_file_t* file, uint8_t* readbuf, uint32
 xxxws_err_t xxxws_port_fs_disk_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
     *actualreadsize = 0;
 #ifdef XXXWS_FS_ENV_UNIX
-    *actualreadsize = fread(readbuf, 1, readbufsize, file->fd);
+    *actualreadsize = fread(readbuf, 1, readbufsize, file->descriptor.fd);
     return XXXWS_ERR_OK;
 #elif XXXWS_FS_ENV_FATAFS
     return XXXWS_ERR_FATAL;
@@ -393,7 +393,7 @@ xxxws_err_t xxxws_port_fs_disk_fread(xxxws_file_t* file, uint8_t* readbuf, uint3
 #endif
 }
 
-xxxws_err_t xxxws_port_fs_rom_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz)
+xxxws_err_t xxxws_port_fs_rom_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
 	return XXXWS_ERR_FATAL;
 }
 
@@ -413,35 +413,36 @@ xxxws_err_t xxxws_port_fs_disk_fwrite(xxxws_file_t* file, uint8_t* write_buf, ui
 #endif
 }
 
-void xxxws_port_fs_rom_fclose(xxxws_file_t* file){
+xxxws_err_t xxxws_port_fs_rom_fclose(xxxws_file_t* file){
 	/*
 	** No special handling is needed.
 	*/
+    return XXXWS_ERR_OK;
 }
 
-void xxxws_port_fs_disk_fclose(xxxws_file_t* file){
+xxxws_err_t xxxws_port_fs_disk_fclose(xxxws_file_t* file){
 #ifdef XXXWS_FS_ENV_UNIX
     fclose(file->fd);
-    return;
+    return XXXWS_ERR_OK;
 #elif XXXWS_FS_ENV_FATAFS
-    return;
+    return XXXWS_ERR_OK;
 #else
-    return;
+    return XXXWS_ERR_OK;
 #endif
 }
 
-void xxxws_port_fs_rom_fremove(char* abs_path){
+xxxws_err_t xxxws_port_fs_rom_fremove(char* abs_path){
 	
 }
 
-void xxxws_port_fs_disk_fremove(char* abs_path){
+xxxws_err_t xxxws_port_fs_disk_fremove(char* abs_path){
 #ifdef XXXWS_FS_ENV_UNIX
     remove(abs_path);
-    return;
+    return XXXWS_ERR_OK;
 #elif XXXWS_FS_ENV_FATAFS
     f_unlink(abs_path);
-	return;
+	return XXXWS_ERR_OK;
 #else
-	return;
+	return XXXWS_ERR_OK;
 #endif
 }

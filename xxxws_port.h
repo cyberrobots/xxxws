@@ -48,8 +48,8 @@ xxxws_err_t xxxws_port_fs_disk_fread(xxxws_file_t* file, uint8_t* readbuf, uint3
 xxxws_err_t xxxws_port_fs_rom_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
 xxxws_err_t xxxws_port_fs_disk_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
 
-void xxxws_port_fs_rom_fclose(xxxws_file_t* file);
-void xxxws_port_fs_disk_fclose(xxxws_file_t* file);
+xxxws_err_t xxxws_port_fs_rom_fclose(xxxws_file_t* file);
+xxxws_err_t xxxws_port_fs_disk_fclose(xxxws_file_t* file);
 
-void xxxws_port_fs_rom_fremove(char* abs_path);
-void xxxws_port_fs_disk_fremove(char* abs_path);
+xxxws_err_t xxxws_port_fs_rom_fremove(char* abs_path);
+xxxws_err_t xxxws_port_fs_disk_fremove(char* abs_path);

@@ -1,10 +1,5 @@
 #include "xxxws.h"
 
-xxxws_err_t xxxws_resource_open_static(){
-	
-}
-
-
 xxxws_err_t xxxws_resource_open_static(xxxws_client_t* client, uint32_t seekpos, uint32_t* filesz){
     xxxws_err_t err;
     char* file_name;
@@ -14,7 +9,7 @@ xxxws_err_t xxxws_resource_open_static(xxxws_client_t* client, uint32_t seekpos,
     */
     file_name = (client->mvc->view[0] == '/') ? &client->mvc->view[1] : client->mvc->view;
     
-    err = xxxws_fs_fopen_read(file_name, &client->resource->file);
+    err = xxxws_fs_fopen(file_name, XXXWS_FILE_MODE_READ, &client->resource->file);
     if(err != XXXWS_ERR_OK){
         return err;
     }
@@ -75,7 +70,7 @@ xxxws_err_t xxxws_resource_open_dynamic(xxxws_client_t* client, uint32_t seekpos
     uint32_t seekpos_actual;
     xxxws_err_t err;
     
-    err = xxxws_fs_fopen_read(client->mvc->view, &client->resource->file);
+    err = xxxws_fs_fopen(client->mvc->view, XXXWS_FILE_MODE_READ, &client->resource->file);
     if(err != XXXWS_ERR_OK){
         return err;
     }

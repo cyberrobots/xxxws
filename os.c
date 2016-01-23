@@ -179,7 +179,7 @@ xxxws_fs_partition_t* xxxws_fs_get_partition(char* vrt_path){
 	for(k = 0; k < sizeof(fs_partitions)/sizeof(xxxws_fs_partition_t); k++){
 		vrt_root_len = strlen(fs_partitions[k].vrt_root);
 		if((strlen(vrt_path) >= vrt_root_len) && (memcmp(vrt_path, fs_partitions[k].vrt_root, vrt_root_len) == 0)){
-			return &fs_partitions[k];
+			return (xxxws_fs_partition_t*) &fs_partitions[k];
 		}
 	}
 	return NULL;
@@ -197,8 +197,8 @@ xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t*
 		return XXXWS_ERR_FILENOTFOUND;
 	}
 	
-	abs_path = &vrt_path[vrt_root_len];
-	err = fs_partitions[k].fopen(abs_path, mode, file);
+	abs_path = &vrt_path[strlen(partition->vrt_root)];
+	err = partition->fopen(abs_path, mode, file);
 	if(err == XXXWS_ERR_OK){
 		file->partition = partition;
 		file->mode = mode;
@@ -225,7 +225,7 @@ xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize){
 	
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-	XXXWS_ENSURE(file->partition);
+	XXXWS_ENSURE(file->partition, "");
 	
 	err = file->partition->fsize(file, filesize);
 	
@@ -237,7 +237,7 @@ xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
 	
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-	XXXWS_ENSURE(file->partition);
+	XXXWS_ENSURE(file->partition, "");
 	
 	err = file->partition->fseek(file, seekpos);
 
@@ -249,7 +249,7 @@ xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbu
     
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-	XXXWS_ENSURE(file->partition);
+	XXXWS_ENSURE(file->partition, "");
 	
 	*actualreadsize = 0;
 	err = file->partition->fread(file, readbuf, readbufsize, actualreadsize);
@@ -265,7 +265,7 @@ xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t wri
     
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
 	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_WRITE, "");
-	XXXWS_ENSURE(file->partition);
+	XXXWS_ENSURE(file->partition, "");
 	
 	*actual_write_sz = 0;
 	err = file->partition->fwrite(file, write_buf, write_buf_sz, actual_write_sz);
@@ -278,23 +278,29 @@ xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t wri
 }
 
 
-void xxxws_fs_fclose(xxxws_file_t* file){
+xxxws_err_t xxxws_fs_fclose(xxxws_file_t* file){
+    xxxws_err_t err;
+    
 	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->partition);
+	XXXWS_ENSURE(file->partition, "");
 	
-	file->partition->fclose(file);
+	err = file->partition->fclose(file);
 	file->status = XXXWS_FILE_STATUS_CLOSED;
+    
+    return err;
 }
 
-void xxxws_fs_fremove(char* vrt_path){
+xxxws_err_t xxxws_fs_fremove(char* vrt_path){
 	xxxws_fs_partition_t* partition;
+    xxxws_err_t err;
 	char* abs_path;
 	
 	partition = xxxws_fs_get_partition(vrt_path);
 	if(!partition){
-		return;
+		return XXXWS_ERR_FATAL;
 	}
-	
-	abs_path = &vrt_path[vrt_root_len];
-	file->partition->fremove(abs_path);
+    
+	abs_path = &vrt_path[strlen(partition->vrt_root)];
+	err = partition->fremove(abs_path);
+    return err;
 }

@@ -3,48 +3,49 @@
 
 
 
-xxxws_file_ram_t ram_files;
+xxxws_fs_ram_file_t fs_ram_files;
 
-void xxxws_ramfs_init(){
-	ram_files.name = NULL;
-	ram_files.cbuf = NULL;
-	ram_files.read_handles = 0;
-	ram_files.write_handles = 0;
-	ram_files.next = &ram_files;
+void xxxws_fs_ram_init(){
+	fs_ram_files.name = NULL;
+	fs_ram_files.cbuf = NULL;
+	fs_ram_files.read_handles = 0;
+	fs_ram_files.write_handles = 0;
+	fs_ram_files.next = &fs_ram_files;
 }
 
 xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file){
 	xxxws_err_t err;
-	xxxws_file_ram_t* ram_file;
+    xxxws_fs_ram_file_t* fs_ram_file;
+
 	
 	/*
 	* Findout if file exists
 	*/
-	ram_file = &ram_files->next;
-	while(ram_file != &ram_files){
-		if(strcmp(path, ram_file->name) == 0){
+	fs_ram_file = fs_ram_files.next;
+	while(fs_ram_file != &fs_ram_files){
+		if(strcmp(abs_path, fs_ram_file->name) == 0){
 			break;
 		}
-		ram_file = ram_file->next;
+		fs_ram_file = fs_ram_file->next;
 	};
 		
 	if(mode == XXXWS_FILE_MODE_READ){
 		
-		if(ram_file == &ram_files){
+		if(fs_ram_file == &fs_ram_files){
 			return XXXWS_ERR_FILENOTFOUND;
 		}
 		
-		if(ram_file->write_handles){
+		if(fs_ram_file->write_handles){
 			/* File is opened for write, cannot read */
 			return XXXWS_ERR_FATAL;
 		}
 		
-		ram_file->read_handles++;
+		fs_ram_file->read_handles++;
 		
-		file->ram.fd = ram_file;
+		file->descriptor.ram.fd = fs_ram_file;
+		file->descriptor.ram.pos = 0;
 		file->mode = XXXWS_FILE_MODE_READ;
-		file->pos = 0;
-		
+        
 		return XXXWS_ERR_OK;
 	}
 	
@@ -52,9 +53,9 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 		/*
 		* If file exists, remove it first
 		*/
-		if(ram_file != &ram_files){
-			if(ram_file->read_handles == 0 && ram_file->write_handles == 0){
-				err = xxxws_ramfs_fremove(path);
+		if(fs_ram_file != &fs_ram_files){
+			if(fs_ram_file->read_handles == 0 && fs_ram_file->write_handles == 0){
+				err = xxxws_fs_ram_fremove(abs_path);
 				if(err != XXXWS_ERR_OK){
 					return err;
 				}	
@@ -64,30 +65,30 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 			}
 		}
 		
-		ram_file = xxxws_mem_malloc(sizeof(xxxws_file_ram_t));
-		if(!ram_file){
+		fs_ram_file = xxxws_mem_malloc(sizeof(xxxws_fs_ram_file_t));
+		if(!fs_ram_file){
 			return XXXWS_ERR_TEMP;
 		}
 		
-		ram_file->name = xxxws_mem_malloc(strlen(path) + 1);
-		if(!ram_file->name){
-			xxxws_mem_free(ram_file);
+		fs_ram_file->name = xxxws_mem_malloc(strlen(abs_path) + 1);
+		if(!fs_ram_file->name){
+			xxxws_mem_free(fs_ram_file);
 			return XXXWS_ERR_TEMP;
 		}
-		strcpy(ram_file->name, path);
-		ram_file->cbuf = NULL;
-		ram_file->write_handles = 1;
-		ram_file->read_handles = 0;
+		strcpy(fs_ram_file->name, abs_path);
+		fs_ram_file->cbuf = NULL;
+		fs_ram_file->write_handles = 1;
+		fs_ram_file->read_handles = 0;
 		
-		file->ram.fd = ram_file;
-		file->pos = 0;
+		file->descriptor.ram.fd = fs_ram_file;
+		file->descriptor.ram.pos = 0;
 		file->mode = XXXWS_FILE_MODE_WRITE;
 		
 		/*
 		** Add the file to the list
 		*/
-		ram_file->next = ram_files->next;
-		ram_files->next = ram_file;
+		fs_ram_file->next = fs_ram_files.next;
+		fs_ram_files.next = fs_ram_file;
 
 		return XXXWS_ERR_OK;
 	}
@@ -96,11 +97,15 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
 }
 
 xxxws_err_t xxxws_fs_ram_size(xxxws_file_t* file, uint32_t* filesize){
-    xxxws_err_t err;
 	xxxws_cbuf_t* cbuf_next;
-	
+    xxxws_fs_ram_file_t* fs_ram_file;
+    xxxws_file_ram_t* file_ram;
+    
+    file_ram = &file->descriptor.ram;
+    fs_ram_file = file_ram->fd;
+    
 	*filesize = 0;
-	cbuf_next =	file->ram.cbuf;
+	cbuf_next =	fs_ram_file->cbuf;
 	while(cbuf_next){
 		*filesize = (*filesize) + (cbuf_next->len);
         cbuf_next = cbuf_next->next;
@@ -111,8 +116,11 @@ xxxws_err_t xxxws_fs_ram_size(xxxws_file_t* file, uint32_t* filesize){
 xxxws_err_t xxxws_fs_ram_fseek(xxxws_file_t* file, uint32_t seekpos){
     xxxws_err_t err;
 	uint32_t filesize;
+    xxxws_file_ram_t* file_ram;
+
+    file_ram = &file->descriptor.ram;
 	
-	err = xxxws_ramfs_size(file, &filesize);
+	err = xxxws_fs_ram_size(file, &filesize);
 	if(err != XXXWS_ERR_OK){
 		return err;
 	}
@@ -123,17 +131,24 @@ xxxws_err_t xxxws_fs_ram_fseek(xxxws_file_t* file, uint32_t seekpos){
 		return XXXWS_ERR_FATAL;
 	}
 	
-	file->ram.pos = seekpos;
+	file_ram->pos = seekpos;
 
     return err;
 }
 
 xxxws_err_t xxxws_fs_ram_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
-    xxxws_file_ram_t* ram_file;
-    ram_file = file->ram.fd;
+    xxxws_fs_ram_file_t* fs_ram_file;
+    xxxws_file_ram_t* file_ram;
+    uint32_t cpy_sz;
+    uint32_t read_sz;
+    uint32_t pos;
+    xxxws_cbuf_t* cbuf;
     
-    cbuf = ram_file->cbuf;
-    pos = ram_file->pos;
+    file_ram = &file->descriptor.ram;
+    fs_ram_file = file_ram->fd;
+    
+    cbuf = fs_ram_file->cbuf;
+    pos = file_ram->pos;
     while(cbuf){
         if(pos < cbuf->len){break;}
         pos -= cbuf->len;
@@ -151,30 +166,32 @@ xxxws_err_t xxxws_fs_ram_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t re
             pos = 0;
         }
     }
-    file->ram.pos += read_sz;
+    file_ram->pos += read_sz;
     *actualreadsize = read_sz;
     return XXXWS_ERR_OK;
 }
 
 
 xxxws_err_t xxxws_fs_ram_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
-	xxxws_file_ram_t* ram_file;
-    xxxws_err_t err;
-	xxxws_cbuf_t* cbuf;
+    xxxws_fs_ram_file_t* fs_ram_file;
+    xxxws_file_ram_t* file_ram;
+	xxxws_cbuf_t* write_cbuf;
 	
 	*actual_write_sz = 0;
 	
-	cbuf = xxxws_cbuf_alloc(write_buf, write_buf_sz);
-	if(!cbuf){
+    file_ram = &file->descriptor.ram;
+    fs_ram_file = file_ram->fd;
+    
+	write_cbuf = xxxws_cbuf_alloc(write_buf, write_buf_sz);
+	if(!write_cbuf){
 		return XXXWS_ERR_OK;
 	}
 	
-    ram_file = file->ram.fd;
-    if(ram_file->cbuf == NULL) {
-        ram_file->cbuf = write_cbuf;
+    if(fs_ram_file->cbuf == NULL) {
+        fs_ram_file->cbuf = write_cbuf;
     }else{
         xxxws_cbuf_t* cbuf;
-        cbuf = ram_file->cbuf;
+        cbuf = fs_ram_file->cbuf;
         while(cbuf->next){
             cbuf = cbuf->next;
         }
@@ -183,59 +200,62 @@ xxxws_err_t xxxws_fs_ram_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t
     return XXXWS_ERR_OK;
 }
 
-void xxxws_fs_ram_fclose(xxxws_file_t* file){
-	xxxws_err_t err;
-    xxxws_file_ram_t* ram_file;
+xxxws_err_t xxxws_fs_ram_fclose(xxxws_file_t* file){
+    xxxws_fs_ram_file_t* fs_ram_file;
+    xxxws_file_ram_t* file_ram;
 	
-	ram_file = file->ram.fd;
+    file_ram = &file->descriptor.ram;
+    fs_ram_file = file_ram->fd;
+    
 	if(file->mode == XXXWS_FILE_MODE_READ){
-		XXXWS_ENSURE(ram_file->read_handles > 0, "");
-		ram_file->read_handles--;
-		return XXXWS_ERR_OK;
+		XXXWS_ENSURE(fs_ram_file->read_handles > 0, "");
+		fs_ram_file->read_handles--;
+        return XXXWS_ERR_OK;
 	}
 	
 	if(file->mode == XXXWS_FILE_MODE_WRITE){
-		XXXWS_ENSURE(ram_file->write_handles > 0, "");
-		ram_file->write_handles--;
-		return XXXWS_ERR_OK;
+		XXXWS_ENSURE(fs_ram_file->write_handles > 0, "");
+		fs_ram_file->write_handles--;
+        return XXXWS_ERR_OK;
 	}
-	
-	return XXXWS_ERR_FATAL;
+    
+    return XXXWS_ERR_FATAL;
 }
 
-void xxxws_fs_ram_fremove(char* abs_path){
-    xxxws_err_t err;
-    xxxws_file_ram_t* ram_file;
+xxxws_err_t xxxws_fs_ram_fremove(char* abs_path){
+    xxxws_fs_ram_file_t* fs_ram_file;
+    xxxws_fs_ram_file_t* fs_ram_file_prev;
 	
 	/*
 	** Locate the file
 	*/
-	ram_file_prev = &ram_files;
-	ram_file = &ram_files->next;
-	while(ram_file != &ram_files){
-		if(strcmp(abs_path, ram_file->name) == 0){
-			ram_file_prev->next = ram_file->next;
+	fs_ram_file_prev = &fs_ram_files;
+	fs_ram_file = fs_ram_files.next;
+	while(fs_ram_file != &fs_ram_files){
+		if(strcmp(abs_path, fs_ram_file->name) == 0){
+			fs_ram_file_prev->next = fs_ram_file->next;
 			break;
 		}
-		ram_file_prev = ram_file;
-		ram_file = ram_file->next;
+		fs_ram_file_prev = fs_ram_file;
+		fs_ram_file = fs_ram_file->next;
 	};
 			
 			
-	if(ram_file != &ram_files){
+	if(fs_ram_file != &fs_ram_files){
 		/*
 		** File not found
 		*/
-		XXXWS_ENSURE(ram_file, "");
+		XXXWS_ENSURE(fs_ram_file, "");
 		return XXXWS_ERR_FATAL;
 	}
 			
-	if(ram_file->read_handles > 0 || ram_file->write_handles > 0){
+	if(fs_ram_file->read_handles > 0 || fs_ram_file->write_handles > 0){
 		return XXXWS_ERR_FATAL;
 	}
 	
-	xxxws_mem_free(ram_file->name);
-	xxxws_cbuf_list_free(ram_file->cbuf);
-	xxxws_mem_free(ram_file);
+	xxxws_mem_free(fs_ram_file->name);
+	xxxws_cbuf_list_free(fs_ram_file->cbuf);
+	xxxws_mem_free(fs_ram_file);
+    return XXXWS_ERR_OK;
 }
  

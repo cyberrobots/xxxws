@@ -109,27 +109,25 @@ typedef enum{
 	XXXWS_FILE_MODE_WRITE,
 }xxxws_file_mode_t;
 
-/*
+
+typedef struct xxxws_fs_ram_file_t xxxws_fs_ram_file_t;
+struct xxxws_fs_ram_file_t{
+	char* name;
+	uint8_t read_handles;
+	uint8_t write_handles;
+    xxxws_cbuf_t* cbuf;
+	xxxws_fs_ram_file_t* next;
+};
+
 typedef struct xxxws_file_ram_t xxxws_file_ram_t;
 struct xxxws_file_ram_t{
-	xxxws_file_ram_t* fd;
+	xxxws_fs_ram_file_t* fd;
 	//xxxws_file_mode_t mode;
 	//char* name;
 	//uint8_t handles;
     uint32_t pos;
     //xxxws_cbuf_t* cbuf;
 };
-*/
-
-typedef struct xxxws_file_ram_t xxxws_file_ram_t;
-struct xxxws_file_ram_t{
-	char* name;
-	uint8_t read_handles;
-	uint8_t write_handles;
-    xxxws_cbuf_t* cbuf;
-	xxxws_file_ram_t* next;
-};
-
 
 typedef struct xxxws_file_rom_t xxxws_file_rom_t;
 struct xxxws_file_rom_t{
@@ -149,6 +147,8 @@ struct xxxws_file_disk_t{
 #endif
 };
 
+typedef struct xxxws_fs_partition_t xxxws_fs_partition_t;
+
 typedef struct xxxws_file_t xxxws_file_t;
 struct xxxws_file_t{
 	xxxws_fs_partition_t* partition;
@@ -161,7 +161,6 @@ struct xxxws_file_t{
         xxxws_file_disk_t disk;
     }descriptor;
 };
-
 
 
 typedef struct xxxws_fs_partition_t xxxws_fs_partition_t;
@@ -177,12 +176,13 @@ struct xxxws_fs_partition_t{
 	xxxws_err_t (*fremove)(char* abs_path);
 };
 
-xxxws_err_t xxxws_port_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file);
-xxxws_err_t xxxws_port_fs_ram_fsize(xxxws_file_t* file, uint32_t* filesize);
-xxxws_err_t xxxws_port_fs_ram_fseek(xxxws_file_t* file, uint32_t seekpos);
-xxxws_err_t xxxws_port_fs_ram_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
-xxxws_err_t xxxws_port_fs_ram_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
-
+xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file);
+xxxws_err_t xxxws_fs_ram_fsize(xxxws_file_t* file, uint32_t* filesize);
+xxxws_err_t xxxws_fs_ram_fseek(xxxws_file_t* file, uint32_t seekpos);
+xxxws_err_t xxxws_fs_ram_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
+xxxws_err_t xxxws_fs_ram_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
+xxxws_err_t xxxws_fs_ram_fclose(xxxws_file_t* file);
+xxxws_err_t xxxws_fs_ram_fremove(char* vrt_path);
 
 xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t* file);
 uint8_t xxxws_fs_fisopened(xxxws_file_t* file);
@@ -190,8 +190,8 @@ xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize);
 xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos);
 xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize);
 xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz);
-void xxxws_fs_fclose(xxxws_file_t* file);
-void xxxws_fs_fremove(char* vrt_path);
+xxxws_err_t xxxws_fs_fclose(xxxws_file_t* file);
+xxxws_err_t xxxws_fs_fremove(char* vrt_path);
 
 
 
