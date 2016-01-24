@@ -55,19 +55,33 @@ xxxws_cbuf_t* xxxws_cbuf_chain(xxxws_cbuf_t* cbuf0, xxxws_cbuf_t* cbuf1){
 }
 
 /*
-** Splits the first cbuf of the cahin so it has exactly "offset" len
+** Splits the first cbuf of the cahin so it has exactly "size" len
 */
 xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
 	xxxws_cbuf_t* cbuf_new;
+    xxxws_cbuf_t* cbuf_prev;
+    xxxws_cbuf_t* cbuf;
 	uint16_t alloc_sz1, alloc_sz2;
 	
 	XXXWS_ENSURE((*cbuf_list) != NULL, "");
-	XXXWS_ENSURE((*cbuf_list)->len >= size, "");
 	
-	if((*cbuf_list)->len == size){
-		return XXXWS_ERR_OK;
+    cbuf_prev = NULL;
+    cbuf = *cbuf_list;
+	while(cbuf){
+		if(size < cbuf->len){break;}
+		size -= cbuf->len;
+        cbuf_prev = cbuf;
+		cbuf = cbuf->next;
 	}
-	
+    
+    if(size == 0){
+        return XXXWS_ERR_OK;
+    }
+    
+    XXXWS_ENSURE(cbuf != NULL, "");
+    XXXWS_ENSURE(cbuf->len > size, "");
+    
+
 	/*
 	** Required allocation size if we are going to prepend a cbuf
 	*/
@@ -80,24 +94,28 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
 	
 	if(alloc_sz1 < alloc_sz2){
 		/* Prepend */
-		cbuf_new = xxxws_cbuf_alloc(&((*cbuf_list)->data)[0], alloc_sz1);
+		cbuf_new = xxxws_cbuf_alloc(&(cbuf->data)[0], alloc_sz1);
 		if(!cbuf_new){
 			return XXXWS_ERR_TEMP;
 		}
-		cbuf_new->next = (*cbuf_list);
-		(*cbuf_list) = cbuf_new;
+		cbuf_new->next = cbuf;
+        if(cbuf_prev == NULL){
+            (*cbuf_list) = cbuf_new;
+        }else{
+            cbuf_prev->next = cbuf_new;
+        }
 		cbuf_new->next->data = &cbuf_new->next->data[alloc_sz1];
 		cbuf_new->next->len -= alloc_sz1;
 	}else{
 		/* Append */
-		cbuf_new = xxxws_cbuf_alloc(&((*cbuf_list)->data)[size], alloc_sz2);
+		cbuf_new = xxxws_cbuf_alloc(&cbuf->data[size], alloc_sz2);
 		if(!cbuf_new){
 			return XXXWS_ERR_TEMP;
 		}
-		cbuf_new->next = (*cbuf_list)->next;
-		(*cbuf_list)->next = cbuf_new;
-		(*cbuf_list)->data[size] = '\0';
-		(*cbuf_list)->len -= alloc_sz2;
+		cbuf_new->next = cbuf->next;
+		cbuf->next = cbuf_new;
+		cbuf->data[size] = '\0';
+		cbuf->len -= alloc_sz2;
 	}
 	
 	return XXXWS_ERR_OK;
