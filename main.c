@@ -15,6 +15,8 @@ void my_controller(req_t* req, mvc_t* mvc){
 int main(){
     xxxws_t* server;
     
+	XXXWS_LOG("Starting web server..");
+	
     server = xxxws_new();
     
     //xxxws_controller(&server, "/action1.html", action1_controller, XXXWS_HTTP_METHOD_POST);

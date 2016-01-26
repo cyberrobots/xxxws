@@ -29,10 +29,16 @@ void xxxws_cbuf_free(xxxws_cbuf_t* cbuf){
 void xxxws_cbuf_list_append(xxxws_cbuf_t* cbuf_list, xxxws_cbuf_t* cbuf_new){
 	xxxws_cbuf_t* cbuf;
     cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
+	while(1){
+		XXXWS_LOG("APPENDING..");
+		if(cbuf->next == cbuf_list){
+			XXXWS_LOG("MATCH..");
+			cbuf->next = cbuf_new;
+			cbuf_new->next = cbuf_list;
+			return;
+		}
 		cbuf = cbuf->next;
 	}
-    cbuf->next = cbuf_new;
 }
 
 void xxxws_cbuf_list_free(xxxws_cbuf_t* cbuf_list){
@@ -343,11 +349,14 @@ cbuf_t* xxxws_cbuf_replace(cbuf_t* cbuf, char* str0, char* str1){
 }
 #endif
 
-void cbuf_print(xxxws_cbuf_t* cbuf){
+void cbuf_print(xxxws_cbuf_t* cbuf_list){
+	xxxws_cbuf_t* cbuf;
 	uint32_t index = 0;
     
 	printf("Printing cbuf chain..\r\n");
-	while(cbuf){
+	    
+    cbuf = cbuf_list->next;
+	while(cbuf != cbuf_list){
 		printf("[cbuf_%u, len %u] -> '%s'\r\n", index++, cbuf->len,  cbuf->data);
 		cbuf = cbuf->next;
 	}

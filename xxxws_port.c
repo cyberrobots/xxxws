@@ -107,9 +107,11 @@ void xxxws_port_socket_close(xxxws_socket_t* socket){
 }
 
 xxxws_err_t xxxws_port_socket_listen(uint16_t port, xxxws_socket_t* server_socket){
+
+	
+#if defined(XXXWS_TCPIP_ENV_UNIX)
     int server_socket_fd;
     struct sockaddr_in server_sockaddrin;
-    
     if ((server_socket_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         return XXXWS_ERR_FATAL;
     }
@@ -130,9 +132,44 @@ xxxws_err_t xxxws_port_socket_listen(uint16_t port, xxxws_socket_t* server_socke
     }
     
     server_socket->fd = server_socket_fd;
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	SOCKET server_socket_fd;
+    struct sockaddr_in server_sockaddrin;
+	WSADATA wsaData;
+	
+	//Initialize Winsock
+    if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) {
+        XXXWS_LOG_ERR("WSAStartup error!");
+        return XXXWS_ERR_FATAL;
+    }
+	
+    if ((server_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
+		XXXWS_LOG_ERR("socket error!");
+		WSACleanup();
+        return XXXWS_ERR_FATAL;
+    }
+	
+    server_sockaddrin.sin_family = AF_INET;
+    server_sockaddrin.sin_port = htons(port);
+    server_sockaddrin.sin_addr.s_addr = INADDR_ANY;
+	//memset(&(server_sockaddrin.sin_zero), 0, sizeof(struct sockaddr_in));
+
+    if (bind(server_socket_fd, (SOCKADDR*)&server_sockaddrin, sizeof(struct sockaddr)) == SOCKET_ERROR) {
+        XXXWS_LOG_ERR("bind error!");
+		WSACleanup();
+        return XXXWS_ERR_FATAL;
+    }
+
+    if (listen(server_socket_fd, 10) == SOCKET_ERROR) {
+        XXXWS_LOG_ERR("listen error!");
+		WSACleanup();
+        return XXXWS_ERR_FATAL;
+    }
     
-    //XXXWS_LOG("server_socket_fd = %d",server_socket_fd );
-    
+    server_socket->fd = server_socket_fd;
+#else
+
+#endif
     return XXXWS_ERR_OK;
 }
 

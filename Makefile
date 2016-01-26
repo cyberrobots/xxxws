@@ -11,11 +11,14 @@ SOURCE_C = \
 	fs_ram.c \
 	stats.c
 
-# windows build
-#FLAGS=-lws2_32
-
-# unix build
+UNAME := $(shell uname)
 FLAGS=
+ifeq ($(UNAME), MINGW32_NT-6.1)
+	FLAGS=-lws2_32
+endif
+ifeq ($(UNAME), MINGW64_NT-6.1)
+	FLAGS=-lws2_32
+endif
 
 all:
 	gcc -g -Wall $(SOURCE_C) $(FLAGS) -o a.out
