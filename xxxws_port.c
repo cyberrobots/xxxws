@@ -1,6 +1,7 @@
 #include "xxxws.h"
 
 #ifdef XXXWS_TCPIP_ENV_UNIX
+	#include "errno.h"
 	#include <netinet/in.h>
 	#include <sys/socket.h>
 	#include <sys/wait.h>
@@ -22,22 +23,29 @@
 ****************************************************************************************************************************
 */
 uint32_t xxxws_port_time_now(){
-#ifdef XXXWS_OS_ENV_UNIX
+#if defined(XXXWS_OS_ENV_UNIX)
     struct timeval  tv;
     gettimeofday(&tv, NULL);
     return  ((tv.tv_sec) * 1000) + ((tv.tv_usec) / 1000) ;
-#elif XXXWS_OS_ENV_CHIBIOS
+#elif defined(XXXWS_OS_ENV_CHIBIOS)
     return 0;
+#elif defined(XXXWS_OS_ENV_WINDOWS)
+	SYSTEMTIME time;
+	GetSystemTime(&time);
+	WORD millis = (time.wSecond * 1000) + time.wMilliseconds;
+	return millis;
 #else
     return 0;
 #endif
 }
 
 void xxxws_port_time_sleep(uint32_t ms){
-#ifdef XXXWS_OS_ENV_UNIX
+#if defined(XXXWS_OS_ENV_UNIX)
     usleep(1000 * ms);
-#elif XXXWS_OS_ENV_CHIBIOS
+#elif defined(XXXWS_OS_ENV_CHIBIOS)
 
+#elif defined(XXXWS_OS_ENV_WINDOWS)
+	Sleep(ms);
 #else
 
 #endif
@@ -49,20 +57,24 @@ void xxxws_port_time_sleep(uint32_t ms){
 ****************************************************************************************************************************
 */
 void* xxxws_port_mem_malloc(uint32_t size){
-#ifdef XXXWS_OS_ENV_UNIX
+#if defined(XXXWS_OS_ENV_UNIX)
     return malloc(size);
-#elif XXXWS_OS_ENV_CHIBIOS
+#elif defined(XXXWS_OS_ENV_CHIBIOS)
     return NULL;
+#elif defined(XXXWS_OS_ENV_WINDOWS)
+	return malloc(size);
 #else
     return NULL;
 #endif
 }
 
 void xxxws_port_mem_free(void* ptr){
-#ifdef XXXWS_OS_ENV_UNIX
+#if defined(XXXWS_OS_ENV_UNIX)
     free(ptr);
-#elif XXXWS_OS_ENV_CHIBIOS
+#elif defined(XXXWS_OS_ENV_CHIBIOS)
 
+#elif defined(XXXWS_OS_ENV_WINDOWS)
+	free(ptr);
 #else
 
 #endif
@@ -74,6 +86,7 @@ void xxxws_port_mem_free(void* ptr){
 ****************************************************************************************************************************
 */
 void xxxws_setblocking(xxxws_socket_t* client_socket, uint8_t blocking){
+#if defined(XXXWS_TCPIP_ENV_UNIX)
     int flags = fcntl(client_socket->fd, F_GETFL, 0);
     if (flags < 0) {
         XXXWS_LOG("fcntl");
@@ -81,6 +94,12 @@ void xxxws_setblocking(xxxws_socket_t* client_socket, uint8_t blocking){
     };
     flags = blocking ? (flags&~O_NONBLOCK) : (flags|O_NONBLOCK);
     fcntl(client_socket->fd, F_SETFL, flags);
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	unsigned long flags = !!blocking;
+	ioctlsocket(client_socket->fd, FIONBIO, &flags);
+#else
+
+#endif
 }
 
 void xxxws_port_socket_close(xxxws_socket_t* socket){
@@ -98,7 +117,7 @@ xxxws_err_t xxxws_port_socket_listen(uint16_t port, xxxws_socket_t* server_socke
     server_sockaddrin.sin_family = AF_INET;
     server_sockaddrin.sin_port = htons(port);
     server_sockaddrin.sin_addr.s_addr = INADDR_ANY;
-    bzero(&(server_sockaddrin.sin_zero), sizeof(struct sockaddr_in));
+    memset(&(server_sockaddrin.sin_zero), 0, sizeof(struct sockaddr_in));
 
     if (bind(server_socket_fd, (struct sockaddr *)&server_sockaddrin, sizeof(struct sockaddr)) == -1) {
         XXXWS_LOG_ERR("bind error!");
@@ -120,9 +139,12 @@ xxxws_err_t xxxws_port_socket_listen(uint16_t port, xxxws_socket_t* server_socke
 xxxws_err_t xxxws_port_socket_accept(xxxws_socket_t* server_socket, uint32_t timeout_ms, xxxws_socket_t* client_socket){
     int client_socket_fd;
     struct sockaddr_in client_addr;
-    socklen_t sockaddr_in_size;
+    
     
 #if 1
+#if defined(XXXWS_TCPIP_ENV_UNIX)
+	socklen_t sockaddr_in_size;
+
     sockaddr_in_size = sizeof(struct sockaddr_in);
     
     xxxws_setblocking(server_socket, 0);
@@ -138,6 +160,27 @@ xxxws_err_t xxxws_port_socket_accept(xxxws_socket_t* server_socket, uint32_t tim
     client_socket->fd = client_socket_fd;
     
     return XXXWS_ERR_OK;
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	int sockaddr_in_size;
+    sockaddr_in_size = sizeof(struct sockaddr_in);
+    
+    xxxws_setblocking(server_socket, 0);
+    client_socket_fd = accept(server_socket->fd, (struct sockaddr *)&client_addr, &sockaddr_in_size);
+    xxxws_setblocking(server_socket, 1);
+    
+    if(client_socket_fd == -1) {
+        XXXWS_LOG("Accept error!");
+        return XXXWS_ERR_FATAL;
+    }
+    
+    XXXWS_LOG("Socket %d accepted!", client_socket_fd);
+    client_socket->fd = client_socket_fd;
+    
+    return XXXWS_ERR_OK;
+#else
+
+#endif
+
 #else
     struct timeval tv;
     fd_set read_fd;
@@ -179,15 +222,17 @@ xxxws_err_t xxxws_port_socket_accept(xxxws_socket_t* server_socket, uint32_t tim
 
 
 
-#include "errno.h"
+
 xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data, uint16_t datalen, uint32_t* received){
     xxxws_err_t err = XXXWS_ERR_OK;
     int result;
     
     XXXWS_LOG("Socket %d Trying to read %u bytes\r\n", client_socket->fd, datalen);
-    
+    *received = 0;
+	
     xxxws_setblocking(client_socket, 0);
-    
+	
+#if defined(XXXWS_TCPIP_ENV_UNIX)
     result = recv(client_socket->fd, data, datalen, 0);
     if(result < 0){
         //XXXWS_LOG("rcv = %d, errno = %d",result, errno);
@@ -208,7 +253,27 @@ xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data,
         //while(1){}
         err = XXXWS_ERR_FATAL;
     }
-    
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+    result = recv(client_socket->fd, (char*) data, datalen, 0);
+    if(result < 0){
+        int win_errno = WSAGetLastError();
+        if((win_errno != EAGAIN) && (win_errno != WSAEWOULDBLOCK )){
+            err = XXXWS_ERR_FATAL;
+        }
+        result = 0;
+    }else if(result == 0){
+        /*
+        ** The return value will be 0 when the peer has performed an orderly shutdown
+        */
+        XXXWS_LOG("rcv result = 0");
+        //while(1){}
+        err = XXXWS_ERR_FATAL;
+    }
+#else
+	result = 0;
+	err = XXXWS_ERR_FATAL;
+#endif
+
     xxxws_setblocking(client_socket, 1);
     
     *received = result;
@@ -224,8 +289,10 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
     
 	XXXWS_LOG("Trying to write %u bytes\r\n", datalen);
 	
+	*sent = 0;
     xxxws_setblocking(client_socket, 0);
-    
+	
+#if defined(XXXWS_TCPIP_ENV_UNIX)
     if((result = write(client_socket->fd, data, datalen)) < 0){
         if((errno != EAGAIN) && (errno != EWOULDBLOCK)){
             // EPIPE
@@ -236,7 +303,22 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
         
         result = 0;
     }
-    
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+    if((result = write(client_socket->fd, data, datalen)) < 0){
+		int win_errno = WSAGetLastError();
+        if((win_errno != EAGAIN) && (win_errno != WSAEWOULDBLOCK)){
+            // EPIPE
+            XXXWS_LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d",result,errno);
+            //while(1){}
+            err = XXXWS_ERR_FATAL;
+        }
+        
+        result = 0;
+    }
+#else
+	result = 0;
+	err = XXXWS_ERR_FATAL;
+#endif
     xxxws_setblocking(client_socket, 1);
 
     

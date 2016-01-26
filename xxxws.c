@@ -883,9 +883,11 @@ xxxws_t* xxxws_new(){
 
 xxxws_err_t xxxws_start(xxxws_t* server, uint16_t port){
     xxxws_err_t err;
-    
+	
+#if defined(XXXWS_OS_ENV_UNIX)
     signal(SIGPIPE, SIG_IGN);
-     
+#endif
+
     err = xxxws_schdlr_init(&server->scheduler, 9000, xxxws_state_http_connection_accepted);
     
     return err;

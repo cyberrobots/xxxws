@@ -76,10 +76,12 @@ struct xxxws_socket_t{
     uint8_t passively_closed;
     uint8_t actively_closed;
     
-#ifdef XXXWS_TCPIP_ENV_UNIX
+#if	defined(XXXWS_TCPIP_ENV_UNIX)
     int fd;
-#elif XXXWS_TCPIP_ENV_LWIP
+#elif defined(XXXWS_TCPIP_ENV_LWIP)
     int fd;
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	int fd;
 #else
 
 #endif

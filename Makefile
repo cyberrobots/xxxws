@@ -11,6 +11,12 @@ SOURCE_C = \
 	fs_ram.c \
 	stats.c
 
+# windows build
+#FLAGS=-lws2_32
+
+# unix build
+FLAGS=
+
 all:
-	gcc -g -Wall $(SOURCE_C) -o a.out
+	gcc -g -Wall $(SOURCE_C) $(FLAGS) -o a.out
 	size a.out
