@@ -345,7 +345,7 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
 		int win_errno = WSAGetLastError();
         if((win_errno != EAGAIN) && (win_errno != WSAEWOULDBLOCK)){
             // EPIPE
-            XXXWS_LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d",result,errno);
+            XXXWS_LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d",result,win_errno);
             //while(1){}
             err = XXXWS_ERR_FATAL;
         }

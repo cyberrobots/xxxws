@@ -4,7 +4,7 @@ xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client){
     uint32_t index0;
     uint32_t index1;
     
-    index0 = xxxws_cbuf_strstr(&client->httpreq.cbuf_list, 0, "\r\n\r\n", 0);
+    index0 = xxxws_cbuf_strstr(client->httpreq.cbuf_list, 0, "\r\n\r\n", 0);
     if(index0 == -1){
         return XXXWS_ERR_TEMP;
     }
@@ -16,11 +16,11 @@ xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client){
     /*
     ** Get HTTP method
     */
-    if(xxxws_cbuf_strcmp(&client->httpreq.cbuf_list, 0, "GET ", 0) == 0){
+    if(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, 0, "GET ", 0) == 0){
         client->httpreq.method = XXXWS_HTTP_METHOD_GET;
-    }else if(xxxws_cbuf_strcmp(&client->httpreq.cbuf_list, 0, "HEAD ", 0) == 0){
+    }else if(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, 0, "HEAD ", 0) == 0){
         client->httpreq.method = XXXWS_HTTP_METHOD_HEAD;
-    }else if(xxxws_cbuf_strcmp(&client->httpreq.cbuf_list, 0, "POST ", 0) == 0){
+    }else if(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, 0, "POST ", 0) == 0){
         client->httpreq.method = XXXWS_HTTP_METHOD_POST;
     }else{
         return XXXWS_ERR_FATAL;
@@ -30,18 +30,18 @@ xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client){
     ** Get HTTP URL
     */
     char* search_str = " ";
-    index0 = xxxws_cbuf_strstr(&client->httpreq.cbuf_list, 0, search_str, 0);
+    index0 = xxxws_cbuf_strstr(client->httpreq.cbuf_list, 0, search_str, 0);
     if(index0 == -1){return XXXWS_ERR_FATAL;}
     index0 += strlen(search_str);
     
-    while(xxxws_cbuf_strcmp(&client->httpreq.cbuf_list, index0, " ", 0) == 0){index0++;}
+    while(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, index0, " ", 0) == 0){index0++;}
     
     search_str = " HTTP/1.1\r\n";
-    index1 = xxxws_cbuf_strstr(&client->httpreq.cbuf_list, 0, search_str, 0);
+    index1 = xxxws_cbuf_strstr(client->httpreq.cbuf_list, 0, search_str, 0);
     if(index1 == -1){return XXXWS_ERR_FATAL;}
     index1--;
     
-    while(xxxws_cbuf_strcmp(&client->httpreq.cbuf_list, index1, " ", 0) == 0){index1--;}
+    while(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, index1, " ", 0) == 0){index1--;}
     
     char* url = xxxws_mem_malloc(index1 - index0 + 1 + 1);
     if(!url){
@@ -50,7 +50,7 @@ xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client){
     
     XXXWS_LOG("URL INDEX[%u,%u]!", index0, index1);
     
-    xxxws_cbuf_strcpy(&client->httpreq.cbuf_list, index0, index1, url);
+    xxxws_cbuf_strcpy(client->httpreq.cbuf_list, index0, index1, url);
     
     XXXWS_LOG("URL = '%s'!", url);
     

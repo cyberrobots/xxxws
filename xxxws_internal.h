@@ -32,17 +32,17 @@ struct xxxws_cbuf_t{
 	uint8_t wa[0];
 };
 
-void xxxws_cbuf_list_init(xxxws_cbuf_t* cbuf_list);
+
 xxxws_cbuf_t* xxxws_cbuf_alloc(uint8_t* data, uint32_t len);
 void xxxws_cbuf_free(xxxws_cbuf_t* cbuf);
-void xxxws_cbuf_list_append(xxxws_cbuf_t* cbuf_list, xxxws_cbuf_t* cbuf_new);
+void xxxws_cbuf_list_append(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new);
 void xxxws_cbuf_list_free(xxxws_cbuf_t* cbuf_list);
-xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t* cbuf_list, uint32_t size);
-uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf_list, uint32_t index, char* str, uint8_t matchCase);
-void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf_list, uint32_t index0, uint32_t index1, char* str);
-uint32_t xxxws_cbuf_strstr(xxxws_cbuf_t* cbuf_list, uint32_t index, char* str, uint8_t matchCase);
-void xxxws_cbuf_list_dropn(xxxws_cbuf_t* cbuf_list, uint32_t n);
-void cbuf_print(xxxws_cbuf_t* cbuf_list);
+xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size);
+uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf, uint32_t index, char* str, uint8_t matchCase);
+void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1, char* str);
+uint32_t xxxws_cbuf_strstr(xxxws_cbuf_t* cbuf0, uint32_t index, char* str, uint8_t matchCase);
+xxxws_cbuf_t* xxxws_cbuf_list_dropn(xxxws_cbuf_t* cbuf, uint32_t n);
+void cbuf_print(xxxws_cbuf_t* cbuf);
 
 /* 
 ** HTTP
@@ -254,7 +254,7 @@ struct xxxws_schdlr_task_t{
     uint32_t poll_delta;
     
     xxxws_client_t* client;
-    xxxws_cbuf_t cbuf_list;
+    xxxws_cbuf_t* cbuf_list;
     
 	xxxws_schdlr_task_t* next;
     xxxws_schdlr_task_t* prev;
@@ -320,7 +320,7 @@ typedef enum{
 
 typedef struct xxxws_httpreq_t xxxws_httpreq_t;
 struct xxxws_httpreq_t{
-    xxxws_cbuf_t cbuf_list;
+    xxxws_cbuf_t* cbuf_list;
 	uint16_t cbuf_list_offset;
 	
 	uint8_t method;

@@ -50,7 +50,7 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
         case xxxws_schdlr_EV_ENTRY:
         {
             //client->server = server;
-			xxxws_cbuf_list_init(&client->httpreq.cbuf_list);
+			client->httpreq.cbuf_list = NULL;
 			
             client->httpreq.url = NULL;
 			strcpy(client->httpreq.file_name, "");
@@ -103,7 +103,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
         {
             cbuf = xxxws_schdlr_socket_read();
             xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
-            cbuf_print(&client->httpreq.cbuf_list);
+            cbuf_print(client->httpreq.cbuf_list);
             
             err = xxxws_http_request_parse(client);
             switch(err){
@@ -167,7 +167,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         {
 			cbuf = xxxws_schdlr_socket_read();
             xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
-            cbuf_print(&client->httpreq.cbuf_list);
+            cbuf_print(client->httpreq.cbuf_list);
             
 			xxxws_schdlr_set_state_poll(0);
         }break;
@@ -197,7 +197,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 				};
 			}
 			
-			if(client->httpreq.cbuf_list.next == &client->httpreq.cbuf_list){
+			if(!client->httpreq.cbuf_list){
 				/*
 				** Disable POLL, wait READ
 				*/
@@ -226,8 +226,8 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 			/*
 			* Copy cbuf list to file
 			*/			
-            cbuf = client->httpreq.cbuf_list.next ;
-			while(cbuf != &client->httpreq.cbuf_list){
+            while(client->httpreq.cbuf_list){
+				cbuf = client->httpreq.cbuf_list;
 				cbuf_next = cbuf->next;
 				
 				XXXWS_ENSURE(cbuf->len <= client->httpreq.unstored_len, ""); 
@@ -244,7 +244,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 						xxxws_schdlr_set_state_poll(0);
 						client->httpreq.cbuf_list_offset += actual_write_sz;
 						if(client->httpreq.cbuf_list_offset == cbuf->len){
-                            xxxws_cbuf_list_dropn(&client->httpreq.cbuf_list, cbuf->len);
+                            client->httpreq.cbuf_list = xxxws_cbuf_list_dropn(client->httpreq.cbuf_list, cbuf->len);
 							client->httpreq.cbuf_list_offset = 0;
 						}
 						client->httpreq.unstored_len -= actual_write_sz;
@@ -265,7 +265,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 						break;
 				};
 				
-				cbuf = cbuf_next;
+				client->httpreq.cbuf_list = cbuf_next;
 			}
         }break;
         case xxxws_schdlr_EV_CLOSED:
@@ -412,7 +412,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                         /*
                         ** User-defined error page was openned succesfully
                         */
-                        //XXXWS_LOG("[OPENNED!");
+                        XXXWS_LOG("[OPENNED!");
                         xxxws_schdlr_state_enter(xxxws_state_build_http_response);
                         break;
                     case XXXWS_ERR_TEMP:
@@ -426,7 +426,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                         ** client->resource will be NULL, and so client-mvc can be null
                         ** because no disk IO is going to be performed.
                         */
-                        //XXXWS_LOG("[NOT FOUND!");
+                        XXXWS_LOG("[NOT FOUND!");
                         filesize = 0;
                         xxxws_mvc_release(client);
                         xxxws_schdlr_state_enter(xxxws_state_build_http_response);
@@ -508,7 +508,7 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 };
                 
                 XXXWS_ENSURE(client->mvc != NULL, "");
-                xxxws_cbuf_list_dropn(&client->httpreq.cbuf_list, client->httpreq.headers_len);
+                client->httpreq.cbuf_list = xxxws_cbuf_list_dropn(client->httpreq.cbuf_list, client->httpreq.headers_len);
             }
           
             /*
@@ -851,7 +851,10 @@ void xxxws_client_cleanup(xxxws_client_t* client){
     /*
     ** Release request
     */
-    xxxws_cbuf_list_free(&client->httpreq.cbuf_list);
+	if(client->httpreq.cbuf_list){
+        xxxws_cbuf_list_free(client->httpreq.cbuf_list);
+        client->httpreq.cbuf_list = NULL;
+    }
     
     if(client->httpreq.url){
         xxxws_mem_free(client->httpreq.url);

@@ -1,11 +1,5 @@
 #include "xxxws.h"
 
-void xxxws_cbuf_list_init(xxxws_cbuf_t* cbuf_list){
-    cbuf_list->next = cbuf_list;
-    cbuf_list->len = 0;
-    cbuf_list->data = NULL;
-}
-
 xxxws_cbuf_t* xxxws_cbuf_alloc(uint8_t* data, uint32_t len){
 	xxxws_cbuf_t* cbuf = xxxws_mem_malloc(sizeof(xxxws_cbuf_t) + len + 1 /* '\0' */);
 	if(cbuf){
@@ -26,57 +20,67 @@ void xxxws_cbuf_free(xxxws_cbuf_t* cbuf){
 	xxxws_mem_free(cbuf);
 }
 
-void xxxws_cbuf_list_append(xxxws_cbuf_t* cbuf_list, xxxws_cbuf_t* cbuf_new){
+void xxxws_cbuf_list_append(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new){
 	xxxws_cbuf_t* cbuf;
-    cbuf = cbuf_list->next;
-	while(1){
-		XXXWS_LOG("APPENDING..");
-		if(cbuf->next == cbuf_list){
-			XXXWS_LOG("MATCH..");
-			cbuf->next = cbuf_new;
-			cbuf_new->next = cbuf_list;
-			return;
-		}
+	if(*cbuf_list == NULL) {
+		*cbuf_list = cbuf_new;
+        return;
+	}
+    cbuf = *cbuf_list;
+	while(cbuf->next){
 		cbuf = cbuf->next;
 	}
+	cbuf->next = cbuf_new;
 }
 
 void xxxws_cbuf_list_free(xxxws_cbuf_t* cbuf_list){
-    xxxws_cbuf_t* cbuf_next;
-    xxxws_cbuf_t* cbuf;
-    cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
-        cbuf_next = cbuf->next;
-        xxxws_cbuf_free(cbuf);
-		cbuf = cbuf_next;
+	xxxws_cbuf_t* cbuf_next;
+	while(cbuf_list){
+        cbuf_next = cbuf_list->next;
+        xxxws_cbuf_free(cbuf_list);
+		cbuf_list = cbuf_next;
 	}
-    cbuf_list->next = cbuf_list;
 }
+
+#if 0
+xxxws_cbuf_t* xxxws_cbuf_chain(xxxws_cbuf_t* cbuf0, xxxws_cbuf_t* cbuf1){
+	xxxws_cbuf_t* cbuf = cbuf0;
+	if(!cbuf) {
+		return cbuf1;
+	}
+	while(cbuf->next){
+		cbuf = cbuf->next;
+	}
+	cbuf->next = cbuf1;
+	return cbuf0;
+}
+#endif
 
 /*
 ** Splits the first cbuf of the cahin so it has exactly "size" len
 */
-xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t* cbuf_list, uint32_t size){
+xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
 	xxxws_cbuf_t* cbuf_new;
     xxxws_cbuf_t* cbuf_prev;
     xxxws_cbuf_t* cbuf;
 	uint16_t alloc_sz1, alloc_sz2;
 	
+	XXXWS_ENSURE((*cbuf_list) != NULL, "");
 	
-    cbuf_prev = cbuf_list;
-    cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
+    cbuf_prev = NULL;
+    cbuf = *cbuf_list;
+	while(cbuf){
 		if(size < cbuf->len){break;}
 		size -= cbuf->len;
         cbuf_prev = cbuf;
 		cbuf = cbuf->next;
 	}
-
+    
     if(size == 0){
         return XXXWS_ERR_OK;
     }
     
-    XXXWS_ENSURE(cbuf != cbuf_list, "");
+    XXXWS_ENSURE(cbuf != NULL, "");
     XXXWS_ENSURE(cbuf->len > size, "");
     
 
@@ -88,7 +92,7 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t* cbuf_list, uint32_t size){
 	/*
 	** Required allocation size if we are going to append a cbuf
 	*/
-	alloc_sz2 = cbuf->len - size;
+	alloc_sz2 = (*cbuf_list)->len - size;
 	
 	if(alloc_sz1 < alloc_sz2){
 		/* Prepend */
@@ -97,7 +101,11 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t* cbuf_list, uint32_t size){
 			return XXXWS_ERR_TEMP;
 		}
 		cbuf_new->next = cbuf;
-        cbuf_prev->next = cbuf_new;
+        if(cbuf_prev == NULL){
+            (*cbuf_list) = cbuf_new;
+        }else{
+            cbuf_prev->next = cbuf_new;
+        }
 		cbuf_new->next->data = &cbuf_new->next->data[alloc_sz1];
 		cbuf_new->next->len -= alloc_sz1;
 	}else{
@@ -115,20 +123,18 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t* cbuf_list, uint32_t size){
 	return XXXWS_ERR_OK;
 }
 
-uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf_list, uint32_t index, char* str, uint8_t matchCase){
-    xxxws_cbuf_t* cbuf;
+uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf, uint32_t index, char* str, uint8_t matchCase){
 	unsigned char c1;
 	unsigned char c2;
-    uint32_t  strIndex, strLen;
+    uint32_t  strIndex,strLen;
 
-    cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
+	while(cbuf){
 		if(index < cbuf->len){break;}
 		index -= cbuf->len;
 		cbuf = cbuf->next;
 	}
-
-    XXXWS_ENSURE(cbuf != cbuf_list, "");
+    
+    XXXWS_ENSURE(cbuf != NULL, "");
     
 	strLen = strlen(str);
     
@@ -153,8 +159,7 @@ uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf_list, uint32_t index, char* str, ui
     return 0;
 }
 
-void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf_list, uint32_t index0, uint32_t index1, char* str){
-    xxxws_cbuf_t* cbuf;
+void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1, char* str){
     uint32_t copy_len;
     uint32_t index;
 
@@ -162,17 +167,16 @@ void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf_list, uint32_t index0, uint32_t index1
     
     *str = '\0';
 
-    cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
+	while(cbuf){
 		if(index0 < cbuf->len){break;}
 		index0 -= cbuf->len;
         index1 -= cbuf->len;
 		cbuf = cbuf->next;
 	}
-
+    
     copy_len = index1 - index0 + 1;
 	for(index = 0; index < copy_len; index++){
-        XXXWS_ENSURE(cbuf != cbuf_list, "");
+        XXXWS_ENSURE(cbuf != NULL, "");
         
 		str[index] = cbuf->data[index0++];
 
@@ -185,24 +189,22 @@ void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf_list, uint32_t index0, uint32_t index1
     str[index] = '\0';
 }
 
-uint32_t xxxws_cbuf_strstr(xxxws_cbuf_t* cbuf_list, uint32_t index, char* str, uint8_t matchCase){
+uint32_t xxxws_cbuf_strstr(xxxws_cbuf_t* cbuf0, uint32_t index, char* str, uint8_t matchCase){
 	unsigned char c1;
 	unsigned char c2;
 	xxxws_cbuf_t* cbuf;
-    xxxws_cbuf_t* cbuf0;
 	uint32_t strIndex,tmpBufIndex,skipIndex;
 	uint32_t strLen;
 	uint8_t found;
 
-    skipIndex = 0;
-    cbuf0 = cbuf_list->next;
-	while(cbuf0 != cbuf_list){
-        if(index < cbuf0->len){break;}
+
+	skipIndex = 0;
+	while(cbuf0){
+		if(index < cbuf0->len){break;}
 		skipIndex += cbuf0->len;
 		index -= cbuf0->len;
 		cbuf0 = cbuf0->next;
 	}
-    
 
 	strLen  = strlen((char*)str);
 	while(cbuf0){ ////+++
@@ -253,6 +255,7 @@ void xxxws_cbuf_copy_escape(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1
     uint16_t encodedStrIndex;
     uint8_t encodedStr[3];
     uint16_t len;
+    //HS_ENSURE(parentBuf != NULL,"hsPbufStrCpyN(): parrentPbuf != NULL");
 
     *str = '\0';
 
@@ -283,12 +286,10 @@ void xxxws_cbuf_copy_escape(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1
     }
 }
 
-void xxxws_cbuf_list_dropn(xxxws_cbuf_t* cbuf_list, uint32_t n){
-    xxxws_cbuf_t* cbuf;
+xxxws_cbuf_t* xxxws_cbuf_list_dropn(xxxws_cbuf_t* cbuf, uint32_t n){
 	xxxws_cbuf_t* cbuf_next;
 
-    cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
+	while(cbuf){
         cbuf_next = cbuf->next;
 		if(n < cbuf->len){
             cbuf->data = &cbuf->data[n];
@@ -297,9 +298,10 @@ void xxxws_cbuf_list_dropn(xxxws_cbuf_t* cbuf_list, uint32_t n){
         }
 		n -= cbuf->len;
         xxxws_cbuf_free(cbuf);
-        cbuf_list->next = cbuf_next;
 		cbuf = cbuf_next;
 	}
+    
+    return cbuf;
 }
 
 #if 0
@@ -312,8 +314,6 @@ cbuf_t* xxxws_cbuf_get(cbuf_t* cbuf, uint32_t absolute_index, uint32_t* relative
 	ENSURE(0);
 	return NULL;
 }
-
-
 cbuf_t* xxxws_cbuf_replace(cbuf_t* cbuf, char* str0, char* str1){
 	uint32_t index0;
 	uint32_t index1;
@@ -322,7 +322,6 @@ cbuf_t* xxxws_cbuf_replace(cbuf_t* cbuf, char* str0, char* str1){
 	cbuf_t* cbuf0;
 	cbuf_t* cbuf1;
 	cbuf_t* cbuf_tmp;
-
 	index0 = xxxws_cbuf_strstr(cbuf, 0, str0, 0);
 	if(index0 == -1){
 		printf("NOT FOUND!!!\r\n");
@@ -336,7 +335,6 @@ cbuf_t* xxxws_cbuf_replace(cbuf_t* cbuf, char* str0, char* str1){
 		cbuf0_prev = cbuf0;
 		cbuf0 = cbuf0->next;
 	}
-
 	cbuf1 = cbuf0;
 	index1 = index0 + strlen(str0) - 1;
 	while(cbuf1){
@@ -344,19 +342,15 @@ cbuf_t* xxxws_cbuf_replace(cbuf_t* cbuf, char* str0, char* str1){
 		index1 -= cbuf1->len;
 		cbuf1 = cbuf1->next;
 	}
-
 	return NULL;
 }
 #endif
 
-void cbuf_print(xxxws_cbuf_t* cbuf_list){
-	xxxws_cbuf_t* cbuf;
+void cbuf_print(xxxws_cbuf_t* cbuf){
 	uint32_t index = 0;
     
 	printf("Printing cbuf chain..\r\n");
-	    
-    cbuf = cbuf_list->next;
-	while(cbuf != cbuf_list){
+	while(cbuf){
 		printf("[cbuf_%u, len %u] -> '%s'\r\n", index++, cbuf->len,  cbuf->data);
 		cbuf = cbuf->next;
 	}

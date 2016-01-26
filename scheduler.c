@@ -34,12 +34,8 @@ xxxws_schdlr_task_t* xxxws_schdlr_current_task;
 xxxws_cbuf_t* xxxws_schdlr_socket_read(){
     xxxws_cbuf_t* cbuf_list;
     
-    if(xxxws_schdlr_current_task->cbuf_list.next == &xxxws_schdlr_current_task->cbuf_list){
-        return NULL;
-    }
-    
-    cbuf_list = xxxws_schdlr_current_task->cbuf_list.next;
-    xxxws_schdlr_current_task->cbuf_list.next = &xxxws_schdlr_current_task->cbuf_list;
+    cbuf_list = xxxws_schdlr_current_task->cbuf_list;
+    xxxws_schdlr_current_task->cbuf_list = NULL;
     
     return cbuf_list;
 }
@@ -93,7 +89,10 @@ void xxxws_schdlr_throw_event(xxxws_schdlr_task_t* task, xxxws_schdlr_ev_t ev){
         
         if(!task->state){
             /* Task quit request */
-            xxxws_cbuf_list_free(&task->cbuf_list);
+			if(task->cbuf_list){
+                xxxws_cbuf_list_free(task->cbuf_list);
+                task->cbuf_list = NULL;
+            }
 
             if(!task->client->socket.actively_closed){
                 xxxws_socket_close(&task->client->socket);
@@ -215,7 +214,7 @@ void xxxws_schdlr_exec(xxxws_schdlr_t* schdlr, uint32_t interval_ms){
                     task->client->socket = client_socket;
                     task->poll_delta = XXXWS_TIME_INFINITE;
                     task->timer_delta = XXXWS_TIME_INFINITE;
-                    xxxws_cbuf_list_init(&task->cbuf_list);
+                    task->cbuf_list = NULL;
                     task->state = schdlr->client_connected_state;
                     task->new_state = task->state;
                     
