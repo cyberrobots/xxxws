@@ -9,6 +9,7 @@
 #define XXXWS_ENSURE(cond,msg,...)  if(!(cond)){XXXWS_PRINTF("[%u] **** LOG %s():%d: " msg "\r\n", xxxws_time_now(), __func__, __LINE__, ##__VA_ARGS__);while(1){}}
 #define XXXWS_UNUSED_ARG(arg)       (void)(arg)
 
+
 typedef enum{
     XXXWS_ERR_OK = 0,
     XXXWS_ERR_TEMP, /* Temporary error, for example out of memory */

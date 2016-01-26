@@ -1,12 +1,36 @@
 #include "xxxws.h" 
 
 /*
+- client->rcv_cuf_list
+- client->httpreq.file_name_headers
+- client->httpreq.file_name_body
+
  - get cbufs chain until headers are received
+ - copy haeders to file,
+ - analize headers
+ - copy body to file (if exists)
+ - prepare response
+ 
+ 
+ - save headers to ram file
+ - filter request
+ - save body to ram/disk file
+ 
+ 
  - do a slpit
  - keep hedaers in ram, open file to store body if nececairy
  - offer a close (for read files) and close_reamove for body files
 
 */
+
+const char* xxxws_schdlr_ev_name[]= {
+    [xxxws_schdlr_EV_ENTRY] = "EV_ENTRY",
+    [xxxws_schdlr_EV_READ] = "EV_READ",
+    [xxxws_schdlr_EV_POLL] = "EV_POLL",
+    [xxxws_schdlr_EV_CLOSED] = "EV_CLOSED",
+    [xxxws_schdlr_EV_TIMER] = "EV_TIMER",
+};
+
 void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
@@ -19,6 +43,9 @@ void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_client_cleanup(xxxws_client_t* client);
 
 void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
+	
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
@@ -58,10 +85,11 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
     xxxws_cbuf_t* cbuf;
     xxxws_err_t err;
     
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_ENTRY]");
             xxxws_schdlr_set_state_timer(4000);
 
 			client->http_pipelining_enabled = 0;
@@ -73,10 +101,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
         };//break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");
-
             cbuf = xxxws_schdlr_socket_read();
-            //XXXWS_LOG("cbuf->len = %u", cbuf->len);
             xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
             cbuf_print(&client->httpreq.cbuf_list);
             
@@ -99,16 +124,14 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
+
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
             xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
@@ -119,16 +142,18 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
     };
 }
 
+
 void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_cbuf_t* cbuf;
 	xxxws_cbuf_t* cbuf_next;
 	uint32_t actual_write_sz;
     xxxws_err_t err;
     
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_ENTRY]");
             xxxws_schdlr_set_state_timer(4000);
             
 			client->httpreq.cbuf_list_offset = 0;
@@ -140,8 +165,6 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         };//break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");
-			
 			cbuf = xxxws_schdlr_socket_read();
             xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
             cbuf_print(&client->httpreq.cbuf_list);
@@ -150,7 +173,6 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
 			char request_file_name[64];
             static uint32_t unique_id = 0;
 			sprintf(request_file_name, XXXWS_FS_RAM_VRT_ROOT"%u", unique_id++);
@@ -159,10 +181,11 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 				err = xxxws_fs_fopen(request_file_name, XXXWS_FILE_MODE_WRITE, &client->httpreq.file);
 				switch(err){
 					case XXXWS_ERR_OK:
+						xxxws_schdlr_set_state_poll(0);
 						strcpy(client->httpreq.file_name, request_file_name);
 						break;
                     case XXXWS_ERR_TEMP:
-                        xxxws_schdlr_set_state_poll(0);
+                        xxxws_schdlr_set_state_poll_backoff();
                         break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -182,22 +205,43 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 				return;
 			}
 			
+			/*
+			* Make sure that unstored_len fits exactly to N buffers
+			*/
+			err = xxxws_cbuf_rechain(&client->httpreq.cbuf_list, client->httpreq.unstored_len);
+			switch(err){
+				case XXXWS_ERR_OK:
+					xxxws_schdlr_set_state_poll(0);
+					break;
+				case XXXWS_ERR_TEMP:
+					xxxws_schdlr_set_state_poll_backoff();
+					return;
+					break;
+				default:
+					XXXWS_ENSURE(0, "");
+					xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
+					break;
+			};
+			
+			/*
+			* Copy cbuf list to file
+			*/			
             cbuf = client->httpreq.cbuf_list.next ;
 			while(cbuf != &client->httpreq.cbuf_list){
 				cbuf_next = cbuf->next;
 				
-				if(cbuf->len > client->httpreq.unstored_len){
-					err = xxxws_cbuf_rechain(&client->httpreq.cbuf_list, client->httpreq.unstored_len);
-					if(err != XXXWS_ERR_OK){
-						return;
-					}
-					continue;
-				}
+				XXXWS_ENSURE(cbuf->len <= client->httpreq.unstored_len, ""); 
 				
 				//err = xxxws_port_fs_fwrite_cbuf(cbuf);
 				err = xxxws_fs_fwrite(&client->httpreq.file, &cbuf->data[client->httpreq.cbuf_list_offset],  cbuf->len - client->httpreq.cbuf_list_offset, &actual_write_sz);
 				switch(err){
 					case XXXWS_ERR_OK:
+						if(!actual_write_sz){
+							xxxws_schdlr_set_state_poll_backoff();
+							return;
+						}
+						
+						xxxws_schdlr_set_state_poll(0);
 						client->httpreq.cbuf_list_offset += actual_write_sz;
 						if(client->httpreq.cbuf_list_offset == cbuf->len){
                             xxxws_cbuf_list_dropn(&client->httpreq.cbuf_list, cbuf->len);
@@ -226,12 +270,10 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
             xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
@@ -249,10 +291,11 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_err_t err;
     
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_ENTRY]");
             xxxws_schdlr_set_state_timer(5000);
             xxxws_schdlr_set_state_poll(0);
             
@@ -308,13 +351,11 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
         }break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");            
+			
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
             
-            xxxws_schdlr_set_state_poll(0);
             
             XXXWS_ENSURE(client->mvc == NULL, "");
             XXXWS_ENSURE(client->resource == NULL, "");
@@ -325,8 +366,10 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             err = xxxws_mvc_get_empty(client);
             switch(err){
                 case XXXWS_ERR_OK:
+					xxxws_schdlr_set_state_poll(0);
                     break;
                 case XXXWS_ERR_TEMP:
+					xxxws_schdlr_set_state_poll_backoff();
                     return;
                     break;
                 case XXXWS_ERR_FILENOTFOUND:
@@ -374,7 +417,8 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                         break;
                     case XXXWS_ERR_TEMP:
                         xxxws_mvc_release(client);
-                        return;
+                        xxxws_schdlr_set_state_poll_backoff();
+						return;
                         break;
                     case XXXWS_ERR_FILENOTFOUND:
                         /*
@@ -399,12 +443,10 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
             xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
@@ -419,10 +461,11 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
 void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_err_t err;
     
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_ENTRY]");
             xxxws_schdlr_set_state_timer(5000);
             xxxws_schdlr_set_state_poll(0);
 			
@@ -434,14 +477,10 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
         }break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");            
+          
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
-            
-            xxxws_schdlr_set_state_poll(0);
-            
             /*
             ** Setup mvc
             */
@@ -449,9 +488,11 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 err = xxxws_mvc_configure(client);
                 switch(err){
                     case XXXWS_ERR_OK:
+						xxxws_schdlr_set_state_poll(0);
                         break;
                     case XXXWS_ERR_TEMP:
-                        return;
+						xxxws_schdlr_set_state_poll_backoff();
+						return;
                         break;
                     case XXXWS_ERR_FILENOTFOUND:
                         XXXWS_ENSURE(0, "");
@@ -483,9 +524,11 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 }
                 switch(err){
                     case XXXWS_ERR_OK:
+						xxxws_schdlr_set_state_poll(0);
                         break;
                     case XXXWS_ERR_TEMP:
-                        return;
+						xxxws_schdlr_set_state_poll_backoff();
+						return;
                         break;
                     case XXXWS_ERR_FILENOTFOUND:
                         client->httpresp.status_code = 404;
@@ -522,12 +565,10 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
             xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
@@ -543,25 +584,20 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
 void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_err_t err;
     
-    XXXWS_LOG("[xxxws_state_build_http_response]");
+    XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
     
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_ENTRY]");
             xxxws_schdlr_set_state_timer(5000);
             xxxws_schdlr_set_state_poll(0);
         }break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");            
+        
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
-            
-            xxxws_schdlr_set_state_poll(0);
-            
             /*
             ** Build HTTP response headers
             */
@@ -580,7 +616,8 @@ void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t e
             */
             uint16_t buf_size = (XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ < XXXWS_HTTP_RESPONSE_HEADER_MSG_BUF_SZ) ? XXXWS_HTTP_RESPONSE_HEADER_MSG_BUF_SZ : XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ;
             if(!(client->httpresp.buf = xxxws_mem_malloc(buf_size))){
-                return;
+				xxxws_schdlr_set_state_poll_backoff();
+				return;
             }else{
                 client->httpresp.buf_index = 0;
                 client->httpresp.buf_len = 0;
@@ -594,12 +631,10 @@ void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t e
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
             xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
@@ -617,27 +652,28 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
     uint32_t send_size;
     uint32_t send_size_actual;
     
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_state_http_response_send[]]");
             xxxws_schdlr_set_state_timer(5000);
             xxxws_schdlr_set_state_poll(0);
         }break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");
+
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
             
-            xxxws_schdlr_set_state_poll(0);
             
             if(!client->httpresp.buf){
                 if(!(client->httpresp.buf = xxxws_mem_malloc(XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ))){
-                    return;
+					xxxws_schdlr_set_state_poll_backoff();
+					return;
                 }
+				xxxws_schdlr_set_state_poll(0);
                 client->httpresp.buf_index = 0;
                 client->httpresp.buf_len = 0;
                 client->httpresp.buf_size = XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ;
@@ -655,9 +691,24 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             XXXWS_LOG("We have %u bytes, we can read %u more", client->httpresp.buf_len, read_size);
             if(read_size){
                 err = xxxws_resource_read(client, &client->httpresp.buf[client->httpresp.buf_index + client->httpresp.buf_len], read_size, &read_size_actual);
-                if(err != XXXWS_ERR_OK){return;}
-                client->httpresp.buf_len += read_size_actual;
-                XXXWS_LOG("We just read %u bytes", read_size_actual);
+				switch(err){
+					case XXXWS_ERR_OK:
+						xxxws_schdlr_set_state_poll(0);
+						client->httpresp.buf_len += read_size_actual;
+						XXXWS_LOG("We just read %u bytes", read_size_actual);
+						break;
+					case XXXWS_ERR_TEMP:
+						xxxws_schdlr_set_state_poll_backoff();
+						return;
+						break;
+					case XXXWS_ERR_FATAL:
+						xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+						break;
+					default:
+						XXXWS_ENSURE(0, "");
+						xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+						break;
+				};
             }
             
             /*
@@ -666,16 +717,29 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             send_size = client->httpresp.buf_len;
             if(send_size){
                 err = xxxws_socket_write(&client->socket, &client->httpresp.buf[client->httpresp.buf_index], send_size, &send_size_actual);
-                if(err != XXXWS_ERR_OK){
-                    XXXWS_LOG("xxxws_port_socket_write errror");
-                    return;
-                }
-                XXXWS_LOG("We just send %u bytes", send_size_actual);
-                //printf("[%s]",client->httpresp.buf);
-                
-                client->httpresp.buf_index += send_size_actual;
-                client->httpresp.buf_len -= send_size_actual;
-                client->httpresp.size -= send_size_actual;
+				switch(err){
+					case XXXWS_ERR_OK:
+						xxxws_schdlr_set_state_poll(0);
+						XXXWS_LOG("We just send %u bytes", send_size_actual);
+						//printf("[%s]",client->httpresp.buf);
+
+						client->httpresp.buf_index += send_size_actual;
+						client->httpresp.buf_len -= send_size_actual;
+						client->httpresp.size -= send_size_actual;
+						break;
+					case XXXWS_ERR_TEMP:
+						xxxws_schdlr_set_state_poll_backoff();
+						return;
+						break;
+					case XXXWS_ERR_FATAL:
+						xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+						break;
+					default:
+						XXXWS_ENSURE(0, "");
+						xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+						break;
+				};
+
             }
             
             /*
@@ -713,12 +777,10 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
             xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
@@ -730,28 +792,30 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 }
 
 void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
+	
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            XXXWS_LOG("[xxxws_state_http_response_send[]]");
             xxxws_client_cleanup(client);
             xxxws_schdlr_state_enter(NULL);
         }break;
         case xxxws_schdlr_EV_READ:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_READ]");
+
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_POLL]");
+
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_CLOSED]");
+
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            XXXWS_LOG("[xxxws_schdlr_EV_TIMER]");
+
         }break;
         default:
         {

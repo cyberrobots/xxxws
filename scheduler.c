@@ -55,7 +55,14 @@ void xxxws_schdlr_set_state_poll(uint32_t poll_delta){
     xxxws_schdlr_current_task->poll_delta = poll_delta;
 }
 
-
+void xxxws_schdlr_set_state_poll_backoff(){
+	uint16_t max_polling_interval_ms = 512;
+	if(!xxxws_schdlr_current_task->poll_delta){
+		xxxws_schdlr_current_task->poll_delta = 1;
+	}else{
+		xxxws_schdlr_current_task->poll_delta = (xxxws_schdlr_current_task->poll_delta <= max_polling_interval_ms/2) ? xxxws_schdlr_current_task->poll_delta * 2 : max_polling_interval_ms;
+	}
+}
 //#define xxxws_schdlr_state_enter(state) xxxws_schdlr_set_state(state);return;
 
 

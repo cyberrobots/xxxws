@@ -240,6 +240,8 @@ typedef enum{
     xxxws_schdlr_EV_TIMER,
 }xxxws_schdlr_ev_t;
 
+
+
 typedef void (*state_t)(xxxws_client_t* client, xxxws_schdlr_ev_t event);
 
 typedef struct xxxws_schdlr_task_t xxxws_schdlr_task_t;
@@ -275,6 +277,7 @@ struct xxxws_schdlr_t{
 
 void xxxws_schdlr_set_state_timer(uint32_t timer_delta);
 void xxxws_schdlr_set_state_poll(uint32_t poll_delta);
+void xxxws_schdlr_set_state_poll_backoff(void);
 void xxxws_schdlr_set_state(state_t state);
 xxxws_cbuf_t* xxxws_schdlr_socket_read();
 

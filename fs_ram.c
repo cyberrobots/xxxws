@@ -211,6 +211,7 @@ xxxws_err_t xxxws_fs_ram_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t
         }
         cbuf->next = write_cbuf;
     }
+	*actual_write_sz = write_buf_sz;
     return XXXWS_ERR_OK;
 }
 
