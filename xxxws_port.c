@@ -103,7 +103,14 @@ void xxxws_setblocking(xxxws_socket_t* client_socket, uint8_t blocking){
 }
 
 void xxxws_port_socket_close(xxxws_socket_t* socket){
+#if defined(XXXWS_TCPIP_ENV_UNIX)
     close(socket->fd);
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	closesocket(socket->fd);
+    WSACleanup();
+#else
+
+#endif
 }
 
 xxxws_err_t xxxws_port_socket_listen(uint16_t port, xxxws_socket_t* server_socket){
@@ -205,7 +212,7 @@ xxxws_err_t xxxws_port_socket_accept(xxxws_socket_t* server_socket, uint32_t tim
     client_socket_fd = accept(server_socket->fd, (struct sockaddr *)&client_addr, &sockaddr_in_size);
     xxxws_setblocking(server_socket, 1);
     
-    if(client_socket_fd == -1) {
+    if(client_socket_fd == INVALID_SOCKET) {
         XXXWS_LOG("Accept error!");
         return XXXWS_ERR_FATAL;
     }
@@ -272,38 +279,34 @@ xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data,
 #if defined(XXXWS_TCPIP_ENV_UNIX)
     result = recv(client_socket->fd, data, datalen, 0);
     if(result < 0){
-        //XXXWS_LOG("rcv = %d, errno = %d",result, errno);
-        //while(1){}
-        
         if((errno != EAGAIN) && (errno != EWOULDBLOCK)){
-            XXXWS_LOG("rcv = %d, errno = %d",result, errno);
-            //while(1){}
+			XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> read() result is %d, ERRNO = %d", result, errno);
             err = XXXWS_ERR_FATAL;
-        }
-        
+        }else{
+			err = XXXWS_ERR_OK;
+		}
         result = 0;
     }else if(result == 0){
         /*
         ** The return value will be 0 when the peer has performed an orderly shutdown
         */
-        XXXWS_LOG("rcv result = 0");
-        //while(1){}
         err = XXXWS_ERR_FATAL;
     }
 #elif defined(XXXWS_TCPIP_ENV_WINDOWS)
     result = recv(client_socket->fd, (char*) data, datalen, 0);
     if(result < 0){
         int win_errno = WSAGetLastError();
-        if((win_errno != EAGAIN) && (win_errno != WSAEWOULDBLOCK )){
+        if(win_errno != WSAEWOULDBLOCK ){
+			XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> read() result is %d, ERRNO = %d", result, win_errno);
             err = XXXWS_ERR_FATAL;
-        }
+        }else{
+			err = XXXWS_ERR_OK;
+		}
         result = 0;
     }else if(result == 0){
         /*
         ** The return value will be 0 when the peer has performed an orderly shutdown
         */
-        XXXWS_LOG("rcv result = 0");
-        //while(1){}
         err = XXXWS_ERR_FATAL;
     }
 #else
@@ -316,12 +319,12 @@ xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data,
     *received = result;
     
     XXXWS_LOG("*received = %u bytes\r\n", *received);
-    
+
 	return err;
 }
 
 xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data, uint16_t datalen, uint32_t* sent){
-    xxxws_err_t err = XXXWS_ERR_OK;
+    xxxws_err_t err;
     int result;
     
 	XXXWS_LOG("Trying to write %u bytes\r\n", datalen);
@@ -332,33 +335,31 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
 #if defined(XXXWS_TCPIP_ENV_UNIX)
     if((result = write(client_socket->fd, data, datalen)) < 0){
         if((errno != EAGAIN) && (errno != EWOULDBLOCK)){
-            // EPIPE
-            XXXWS_LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d",result,errno);
-            //while(1){}
+            XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d", result, errno);
             err = XXXWS_ERR_FATAL;
-        }
-        
+        }else{
+			err = XXXWS_ERR_OK;
+		}
         result = 0;
     }
 #elif defined(XXXWS_TCPIP_ENV_WINDOWS)
-    if((result = write(client_socket->fd, data, datalen)) < 0){
+    if((result = write(client_socket->fd, data, datalen)) == SOCKET_ERROR){
 		int win_errno = WSAGetLastError();
-        if((win_errno != EAGAIN) && (win_errno != WSAEWOULDBLOCK)){
-            // EPIPE
-            XXXWS_LOG(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d",result,win_errno);
-            //while(1){}
+        if(win_errno != WSAEWOULDBLOCK){
+            XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d", result, win_errno);
             err = XXXWS_ERR_FATAL;
-        }
-        
+        }else{
+			err = XXXWS_ERR_OK;
+		}
         result = 0;
     }
 #else
 	result = 0;
 	err = XXXWS_ERR_FATAL;
 #endif
+
     xxxws_setblocking(client_socket, 1);
 
-    
 	*sent = result;
     return err;
 }

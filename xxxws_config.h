@@ -104,6 +104,14 @@
 */
 #define XXXWS_FS_INDEX_HTML_VROOT	XXXWS_FSROM_VROOT
 
+/*
+** Specify the partition for the "404.html" [Not Found], "500.html" [Internal Server Error] web pages. 
+** This enables to return custom made web pages for the particular responses.
+** If these pages does not exist in the specific partition, the web server will send the specific
+** response will empty body.
+*/
+#define XXXWS_FS_ERROR_HTML_VROOT	XXXWS_FSROM_VROOT
+
 
 /*
 ** 0   : use OS select()
