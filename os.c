@@ -175,10 +175,19 @@ const xxxws_fs_partition_t fs_partitions[] = {
 
 xxxws_fs_partition_t* xxxws_fs_get_partition(char* vrt_path){
 	uint16_t vrt_root_len;
+	uint8_t vrt_root_offset;
+	
+	if(vrt_path[0] != '/'){
+		vrt_root_offset = 1;
+	}else{
+		vrt_root_offset = 0;
+	}
+	
 	uint8_t k;
 	for(k = 0; k < sizeof(fs_partitions)/sizeof(xxxws_fs_partition_t); k++){
-		vrt_root_len = strlen(fs_partitions[k].vrt_root);
-		if((strlen(vrt_path) >= vrt_root_len) && (memcmp(vrt_path, fs_partitions[k].vrt_root, vrt_root_len) == 0)){
+		vrt_root_len = strlen(fs_partitions[k].vrt_root) - vrt_root_offset;
+		XXXWS_LOG("comparing '%s' with '%s'..", vrt_path, &fs_partitions[k].vrt_root[vrt_root_offset]);
+		if((strlen(vrt_path) >= vrt_root_len) && (memcmp(vrt_path, &fs_partitions[k].vrt_root[vrt_root_offset], vrt_root_len) == 0)){
 			return (xxxws_fs_partition_t*) &fs_partitions[k];
 		}
 	}
@@ -196,10 +205,13 @@ xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t*
 	xxxws_err_t err;
 	char* abs_path;
 	
+	XXXWS_LOG("Openning file '%s'..", vrt_path);
+	
 	XXXWS_ENSURE(mode == XXXWS_FILE_MODE_READ || mode == XXXWS_FILE_MODE_WRITE, "");
 	
 	partition = xxxws_fs_get_partition(vrt_path);
 	if(!partition){
+		XXXWS_LOG("Doen not belong to any partition..");
 		return XXXWS_ERR_FILENOTFOUND;
 	}
 	

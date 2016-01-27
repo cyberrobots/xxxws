@@ -427,7 +427,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                         ** because no disk IO is going to be performed.
                         */
                         XXXWS_LOG("[NOT FOUND!");
-                        filesize = 0;
+                        client->httpresp.file_size = 0;
                         xxxws_mvc_release(client);
                         xxxws_schdlr_state_enter(xxxws_state_build_http_response);
                         break;
@@ -862,7 +862,7 @@ void xxxws_client_cleanup(xxxws_client_t* client){
     }  
 
 	if(client->httpreq.file_name[0] != '\0'){
-		if(!xxxws_fs_fisopened(&client->httpreq.file)){
+		if(xxxws_fs_fisopened(&client->httpreq.file)){
 			xxxws_fs_fclose(&client->httpreq.file);
 		}
 		xxxws_fs_fremove(client->httpreq.file_name);

@@ -107,7 +107,6 @@ void xxxws_port_socket_close(xxxws_socket_t* socket){
     close(socket->fd);
 #elif defined(XXXWS_TCPIP_ENV_WINDOWS)
 	closesocket(socket->fd);
-    WSACleanup();
 #else
 
 #endif
@@ -268,7 +267,7 @@ xxxws_err_t xxxws_port_socket_accept(xxxws_socket_t* server_socket, uint32_t tim
 
 
 xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data, uint16_t datalen, uint32_t* received){
-    xxxws_err_t err = XXXWS_ERR_OK;
+    xxxws_err_t err;
     int result;
     
     XXXWS_LOG("Socket %d Trying to read %u bytes\r\n", client_socket->fd, datalen);
@@ -277,6 +276,7 @@ xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data,
     xxxws_setblocking(client_socket, 0);
 	
 #if defined(XXXWS_TCPIP_ENV_UNIX)
+	err = XXXWS_ERR_OK;
     result = recv(client_socket->fd, data, datalen, 0);
     if(result < 0){
         if((errno != EAGAIN) && (errno != EWOULDBLOCK)){
@@ -293,6 +293,7 @@ xxxws_err_t xxxws_port_socket_read(xxxws_socket_t* client_socket, uint8_t* data,
         err = XXXWS_ERR_FATAL;
     }
 #elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	err = XXXWS_ERR_OK;
     result = recv(client_socket->fd, (char*) data, datalen, 0);
     if(result < 0){
         int win_errno = WSAGetLastError();
@@ -333,6 +334,7 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
     xxxws_setblocking(client_socket, 0);
 	
 #if defined(XXXWS_TCPIP_ENV_UNIX)
+	err = XXXWS_ERR_OK;
     if((result = write(client_socket->fd, data, datalen)) < 0){
         if((errno != EAGAIN) && (errno != EWOULDBLOCK)){
             XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d", result, errno);
@@ -343,10 +345,11 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
         result = 0;
     }
 #elif defined(XXXWS_TCPIP_ENV_WINDOWS)
-    if((result = write(client_socket->fd, data, datalen)) == SOCKET_ERROR){
+	err = XXXWS_ERR_OK;
+    if((result = send(client_socket->fd, (const char *) data, datalen, 0)) == SOCKET_ERROR){
 		int win_errno = WSAGetLastError();
         if(win_errno != WSAEWOULDBLOCK){
-            XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> write() result is %d, ERRNO = %d", result, win_errno);
+            XXXWS_LOG_ERR(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> send() result is %d, ERRNO = %d", result, win_errno);
             err = XXXWS_ERR_FATAL;
         }else{
 			err = XXXWS_ERR_OK;
@@ -366,14 +369,15 @@ xxxws_err_t xxxws_port_socket_write(xxxws_socket_t* client_socket, uint8_t* data
 
 xxxws_err_t xxxws_port_socket_select(xxxws_socket_t* socket_readset[], uint32_t socket_readset_sz, uint32_t timeout_ms, uint8_t socket_readset_status[]){
     uint32_t index;
-    fd_set fd_readset;
-    struct timeval timeval;
     int retval;
-    
+	
+#if defined(XXXWS_TCPIP_ENV_UNIX)
+	struct timeval timeval;
+	fd_set fd_readset;
     FD_ZERO(&fd_readset);
     XXXWS_LOG("----");
     for(index = 0; index < socket_readset_sz; index++){
-        XXXWS_LOG("xxxws_port_socket_select(socket_readset[%d]->fd = %d, size = %d)", index, socket_readset[index]->fd, socket_readset_sz);
+        XXXWS_LOG("xxxws_port_socket_select(timeout = %u, socket_readset[%d]->fd = %d, size = %d)", timeout_ms, index, socket_readset[index]->fd, socket_readset_sz);
         socket_readset_status[index] = 0;
         FD_SET(socket_readset[index]->fd, &fd_readset);
     }
@@ -386,10 +390,10 @@ xxxws_err_t xxxws_port_socket_select(xxxws_socket_t* socket_readset[], uint32_t 
     
     if(retval < 0){
         /* Select error */
-        //XXXWS_LOG("Select Error!\r\n");
+        XXXWS_LOG("Select Error!\r\n");
     }else if(retval == 0){
         /* Select timeout */
-        //XXXWS_LOG("Select Timeout!\r\n");
+        XXXWS_LOG("Select Timeout!\r\n");
     }else{
         /* Read/Write event */
         //XXXWS_LOG("Select Event!\r\n");
@@ -401,8 +405,47 @@ xxxws_err_t xxxws_port_socket_select(xxxws_socket_t* socket_readset[], uint32_t 
             }
         }
     }
-
-    return XXXWS_ERR_OK;
+	return XXXWS_ERR_OK;
+#elif defined(XXXWS_TCPIP_ENV_WINDOWS)
+	TIMEVAL timeval;
+	fd_set fd_readset;
+    FD_ZERO(&fd_readset);
+    XXXWS_LOG("----");
+    for(index = 0; index < socket_readset_sz; index++){
+        XXXWS_LOG("xxxws_port_socket_select(timeout = %u, socket_readset[%d]->fd = %d, size = %d)", timeout_ms, index, socket_readset[index]->fd, socket_readset_sz);
+        socket_readset_status[index] = 0;
+        FD_SET(socket_readset[index]->fd, &fd_readset);
+    }
+    XXXWS_LOG("----");
+    
+    timeval.tv_sec 		= (timeout_ms / 1000); 
+    timeval.tv_usec 	= (timeout_ms % 1000) * 1000;
+    
+    retval = select (FD_SETSIZE, &fd_readset, NULL, NULL, &timeval);
+    
+    if(retval == SOCKET_ERROR){
+        /* Select error */
+		int win_errno = WSAGetLastError();
+        XXXWS_LOG("Select Error! win_errno = %d\r\n", win_errno);
+    }else if(retval == 0){
+        /* Select timeout */
+        XXXWS_LOG("Select Timeout!\r\n");
+    }else{
+        /* Read/Write event */
+        //XXXWS_LOG("Select Event!\r\n");
+        for(index = 0; index < socket_readset_sz; index++){
+            
+            if (FD_ISSET(socket_readset[index]->fd, &fd_readset)){
+                XXXWS_LOG("Socket[index = %d] %d can read!\r\n",index,socket_readset[index]->fd);
+                socket_readset_status[index] = 1;
+            }
+        }
+    }
+	return XXXWS_ERR_OK;
+#else
+	err = XXXWS_ERR_FATAL;
+#endif
+    
 }
 
 /*
