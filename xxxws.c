@@ -33,7 +33,7 @@ const char* xxxws_schdlr_ev_name[]= {
 
 void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
-void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
+void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
@@ -50,6 +50,7 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
         case xxxws_schdlr_EV_ENTRY:
         {
             //client->server = server;
+			client->rcv_cbuf_list = NULL;
 			client->httpreq.cbuf_list = NULL;
 			
             client->httpreq.url = NULL;
@@ -95,23 +96,48 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
 			client->http_pipelining_enabled = 0;
 			
             /*
-            ** Don't break and continue to the READ event .
+            ** Don't break and continue to the READ/POLL event .
 			** We may have pipelined packets during processing the previous request.
             */
         };//break;
         case xxxws_schdlr_EV_READ:
         {
+
+        };//break;
+        case xxxws_schdlr_EV_POLL:
+        {
             cbuf = xxxws_schdlr_socket_read();
-            xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
-            cbuf_print(client->httpreq.cbuf_list);
+            xxxws_cbuf_list_append(&client->rcv_cbuf_list, cbuf);
+            cbuf_list_print(client->rcv_cbuf_list);
             
             err = xxxws_http_request_parse(client);
             switch(err){
                 case XXXWS_ERR_OK:
-                    XXXWS_LOG("HTTP Headers received!");
-					xxxws_schdlr_state_enter(xxxws_state_http_request_store);
+                    XXXWS_LOG("HTTP Headers received! [len is %u]", client->httpreq.headers_len);
+					
+					err = xxxws_cbuf_list_split(&client->rcv_cbuf_list, client->httpreq.headers_len, &client->httpreq.cbuf_list);
+					switch(err){
+						case XXXWS_ERR_OK:
+							break;
+						case XXXWS_ERR_TEMP:
+							xxxws_schdlr_set_state_poll_backoff();
+							return;
+							break;
+						default:
+							XXXWS_ENSURE(0, "");
+							xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
+							break;
+					};
+					
+					if(client->httpreq.body_len){
+						xxxws_schdlr_state_enter(xxxws_state_http_request_body_receive);
+					}else{
+						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response);
+					}
                     break;
                 case XXXWS_ERR_TEMP:
+				    xxxws_schdlr_set_state_poll_backoff();
+					return;
                     break;
                 case XXXWS_ERR_FATAL:
                     xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -121,10 +147,6 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
                     xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
                     break;
             };
-        }break;
-        case xxxws_schdlr_EV_POLL:
-        {
-
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
@@ -143,7 +165,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
 }
 
 
-void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
+void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_cbuf_t* cbuf;
 	xxxws_cbuf_t* cbuf_next;
 	uint32_t actual_write_sz;
@@ -167,7 +189,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         {
 			cbuf = xxxws_schdlr_socket_read();
             xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
-            cbuf_print(client->httpreq.cbuf_list);
+            cbuf_list_print(client->httpreq.cbuf_list);
             
 			xxxws_schdlr_set_state_poll(0);
         }break;
@@ -186,6 +208,7 @@ void xxxws_state_http_request_store(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 						break;
                     case XXXWS_ERR_TEMP:
                         xxxws_schdlr_set_state_poll_backoff();
+						return;
                         break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -799,6 +822,10 @@ void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
         case xxxws_schdlr_EV_ENTRY:
         {
             xxxws_client_cleanup(client);
+			if(client->rcv_cbuf_list){
+				xxxws_cbuf_list_free(client->rcv_cbuf_list );
+				client->rcv_cbuf_list  = NULL;
+			}
             xxxws_schdlr_state_enter(NULL);
         }break;
         case xxxws_schdlr_EV_READ:

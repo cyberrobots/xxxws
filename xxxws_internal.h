@@ -37,12 +37,13 @@ xxxws_cbuf_t* xxxws_cbuf_alloc(uint8_t* data, uint32_t len);
 void xxxws_cbuf_free(xxxws_cbuf_t* cbuf);
 void xxxws_cbuf_list_append(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new);
 void xxxws_cbuf_list_free(xxxws_cbuf_t* cbuf_list);
+xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxws_cbuf_t** cbuf_list1);
 xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size);
 uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf, uint32_t index, char* str, uint8_t matchCase);
 void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1, char* str);
 uint32_t xxxws_cbuf_strstr(xxxws_cbuf_t* cbuf0, uint32_t index, char* str, uint8_t matchCase);
 xxxws_cbuf_t* xxxws_cbuf_list_dropn(xxxws_cbuf_t* cbuf, uint32_t n);
-void cbuf_print(xxxws_cbuf_t* cbuf);
+void cbuf_list_print(xxxws_cbuf_t* cbuf);
 
 /* 
 ** HTTP
@@ -372,6 +373,7 @@ struct xxxws_http_t{
 struct xxxws_client_t{
     xxxws_t* server;
     xxxws_socket_t socket;
+	xxxws_cbuf_t* rcv_cbuf_list;
     xxxws_httpreq_t httpreq;
     xxxws_httpresp_t httpresp;
     xxxws_mvc_t* mvc;

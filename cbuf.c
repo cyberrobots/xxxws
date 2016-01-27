@@ -42,6 +42,41 @@ void xxxws_cbuf_list_free(xxxws_cbuf_t* cbuf_list){
 	}
 }
 
+xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxws_cbuf_t** cbuf_list1){
+	xxxws_cbuf_t* cbuf;
+	xxxws_cbuf_t* cbuf_next;
+	xxxws_err_t err;
+	
+	err = xxxws_cbuf_rechain(cbuf_list0, size);
+	if(err != XXXWS_ERR_OK){
+		return err;
+	}
+	
+	*cbuf_list1 = NULL;
+	while(size){
+		cbuf = *cbuf_list0;
+		XXXWS_ENSURE(cbuf != NULL, "");
+		
+		cbuf_next = cbuf->next;
+		if(size >= cbuf->len){
+			size -= cbuf->len;
+			*cbuf_list0 = cbuf_next;
+			xxxws_cbuf_list_append(cbuf_list1, cbuf);
+			if(size == 0){
+				return XXXWS_ERR_OK;
+			}
+		}else{
+			XXXWS_ENSURE(0, "");
+			return XXXWS_ERR_FATAL;
+		}
+		cbuf = cbuf_next;
+	}
+
+	XXXWS_ENSURE(0, "");
+	return XXXWS_ERR_FATAL;
+}
+
+
 #if 0
 xxxws_cbuf_t* xxxws_cbuf_chain(xxxws_cbuf_t* cbuf0, xxxws_cbuf_t* cbuf1){
 	xxxws_cbuf_t* cbuf = cbuf0;
@@ -346,7 +381,7 @@ cbuf_t* xxxws_cbuf_replace(cbuf_t* cbuf, char* str0, char* str1){
 }
 #endif
 
-void cbuf_print(xxxws_cbuf_t* cbuf){
+void cbuf_list_print(xxxws_cbuf_t* cbuf){
 	uint32_t index = 0;
     
 	printf("Printing cbuf chain..\r\n");
