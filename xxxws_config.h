@@ -96,13 +96,13 @@
 ** location of the index.html page (there is no XXXWS_FSROM_VRT_ROOT / XXXWS_FSDISK_VRT_ROOT prefix)
 ** and it should be specified here:
 **
-** - XXXWS_FS_INDEX_HTML_VROOT == XXXWS_FSROM_VROOT : 
+** - XXXWS_FS_INDEX_HTML_VROOT == XXXWS_FS_ROM_VRT_ROOT : 
 **	 index.html is located to ROM, and will be requested as {XXXWS_FSROM_ABS_ROOT}index.html from xxxws_port_fsrom_fopen()
 **
-** - XXXWS_FS_INDEX_HTML_VROOT == XXXWS_FSDISK_VROOT : 
+** - XXXWS_FS_INDEX_HTML_VROOT == XXXWS_FS_DISK_VRT_ROOT : 
 **	 index.html is located to DISK, and will be requested as {XXXWS_FSDISK_ABS_ROOT}index.html from xxxws_port_fsdisk_fopen()
 */
-#define XXXWS_FS_INDEX_HTML_VROOT	XXXWS_FSROM_VROOT
+#define XXXWS_FS_INDEX_HTML_VROOT	XXXWS_FS_ROM_VRT_ROOT
 
 /*
 ** Specify the partition for the "404.html" [Not Found], "500.html" [Internal Server Error] web pages. 
@@ -110,7 +110,7 @@
 ** If these pages does not exist in the specific partition, the web server will send the specific
 ** response will empty body.
 */
-#define XXXWS_FS_ERROR_HTML_VROOT	XXXWS_FSROM_VROOT
+#define XXXWS_FS_ERROR_HTML_VROOT	XXXWS_FS_ROM_VRT_ROOT
 
 
 /*

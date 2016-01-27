@@ -1,6 +1,13 @@
 #include "xxxws.h" 
 
 /*
+	- 	xxxws_schdlr_set_state_poll(0); should be used at the enad of the particular event to re-enable fast polling,
+		and not after every ERR_OK result. [else it will cause ps leak in the following case {ERR_OK:poll(0)}+ -> {ERR_MEM}+
+		
+	- 	every xxxws_schdlr_set_state_poll_backoff(); should be follwed by return;
+*/
+
+/*
 - client->rcv_cuf_list
 - client->httpreq.file_name_headers
 - client->httpreq.file_name_body
@@ -188,8 +195,8 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
         case xxxws_schdlr_EV_READ:
         {
 			cbuf = xxxws_schdlr_socket_read();
-            xxxws_cbuf_list_append(&client->httpreq.cbuf_list, cbuf);
-            cbuf_list_print(client->httpreq.cbuf_list);
+			xxxws_cbuf_list_append(&client->rcv_cbuf_list, cbuf);
+            cbuf_list_print(client->rcv_cbuf_list);
             
 			xxxws_schdlr_set_state_poll(0);
         }break;
@@ -203,7 +210,6 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				err = xxxws_fs_fopen(request_file_name, XXXWS_FILE_MODE_WRITE, &client->httpreq.file);
 				switch(err){
 					case XXXWS_ERR_OK:
-						xxxws_schdlr_set_state_poll(0);
 						strcpy(client->httpreq.file_name, request_file_name);
 						break;
                     case XXXWS_ERR_TEMP:
@@ -220,7 +226,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				};
 			}
 			
-			if(!client->httpreq.cbuf_list){
+			if(!client->rcv_cbuf_list){
 				/*
 				** Disable POLL, wait READ
 				*/
@@ -231,10 +237,9 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 			/*
 			* Make sure that unstored_len fits exactly to N buffers
 			*/
-			err = xxxws_cbuf_rechain(&client->httpreq.cbuf_list, client->httpreq.unstored_len);
+			err = xxxws_cbuf_rechain(&client->rcv_cbuf_list, client->httpreq.unstored_len);
 			switch(err){
 				case XXXWS_ERR_OK:
-					xxxws_schdlr_set_state_poll(0);
 					break;
 				case XXXWS_ERR_TEMP:
 					xxxws_schdlr_set_state_poll_backoff();
@@ -263,8 +268,6 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 							xxxws_schdlr_set_state_poll_backoff();
 							return;
 						}
-						
-						xxxws_schdlr_set_state_poll(0);
 						client->httpreq.cbuf_list_offset += actual_write_sz;
 						if(client->httpreq.cbuf_list_offset == cbuf->len){
                             client->httpreq.cbuf_list = xxxws_cbuf_list_dropn(client->httpreq.cbuf_list, cbuf->len);
@@ -290,6 +293,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				
 				client->httpreq.cbuf_list = cbuf_next;
 			}
+			xxxws_schdlr_set_state_poll(0);
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
@@ -389,7 +393,6 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             err = xxxws_mvc_get_empty(client);
             switch(err){
                 case XXXWS_ERR_OK:
-					xxxws_schdlr_set_state_poll(0);
                     break;
                 case XXXWS_ERR_TEMP:
 					xxxws_schdlr_set_state_poll_backoff();
@@ -413,11 +416,12 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             ** Get the default html page for the particular status code
             */
             char status_code_page_name[25];
-            sprintf(status_code_page_name, "%u.html", client->httpresp.status_code);
+            sprintf(status_code_page_name, XXXWS_FS_ERROR_HTML_VROOT"%u.html", client->httpresp.status_code);
             xxxws_mvc_set_view(client, status_code_page_name);
             if(xxxws_mvc_get_errors(client)){
                 /* Propably memory error */
                 xxxws_mvc_release(client);
+                xxxws_schdlr_set_state_poll_backoff();
                 return;
             }
 
@@ -511,7 +515,6 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 err = xxxws_mvc_configure(client);
                 switch(err){
                     case XXXWS_ERR_OK:
-						xxxws_schdlr_set_state_poll(0);
                         break;
                     case XXXWS_ERR_TEMP:
 						xxxws_schdlr_set_state_poll_backoff();
@@ -547,7 +550,6 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 }
                 switch(err){
                     case XXXWS_ERR_OK:
-						xxxws_schdlr_set_state_poll(0);
                         break;
                     case XXXWS_ERR_TEMP:
 						xxxws_schdlr_set_state_poll_backoff();
@@ -690,13 +692,11 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         case xxxws_schdlr_EV_POLL:
         {
             
-            
             if(!client->httpresp.buf){
                 if(!(client->httpresp.buf = xxxws_mem_malloc(XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ))){
 					xxxws_schdlr_set_state_poll_backoff();
 					return;
                 }
-				xxxws_schdlr_set_state_poll(0);
                 client->httpresp.buf_index = 0;
                 client->httpresp.buf_len = 0;
                 client->httpresp.buf_size = XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ;
@@ -716,7 +716,6 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                 err = xxxws_resource_read(client, &client->httpresp.buf[client->httpresp.buf_index + client->httpresp.buf_len], read_size, &read_size_actual);
 				switch(err){
 					case XXXWS_ERR_OK:
-						xxxws_schdlr_set_state_poll(0);
 						client->httpresp.buf_len += read_size_actual;
 						XXXWS_LOG("We just read %u bytes", read_size_actual);
 						break;
@@ -742,7 +741,6 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                 err = xxxws_socket_write(&client->socket, &client->httpresp.buf[client->httpresp.buf_index], send_size, &send_size_actual);
 				switch(err){
 					case XXXWS_ERR_OK:
-						xxxws_schdlr_set_state_poll(0);
 						XXXWS_LOG("We just send %u bytes", send_size_actual);
 						//printf("[%s]",client->httpresp.buf);
 
@@ -796,7 +794,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                 XXXWS_LOG("Bytes left(%u)", client->httpresp.size);
             }
 
-            
+            xxxws_schdlr_set_state_poll(0);
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {

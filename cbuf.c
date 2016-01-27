@@ -22,6 +22,8 @@ void xxxws_cbuf_free(xxxws_cbuf_t* cbuf){
 
 void xxxws_cbuf_list_append(xxxws_cbuf_t** cbuf_list, xxxws_cbuf_t* cbuf_new){
 	xxxws_cbuf_t* cbuf;
+	// TODO, ensure that last cbuf->next = NULL
+	
 	if(*cbuf_list == NULL) {
 		*cbuf_list = cbuf_new;
         return;
@@ -47,6 +49,8 @@ xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxw
 	xxxws_cbuf_t* cbuf_next;
 	xxxws_err_t err;
 	
+	XXXWS_ENSURE(*cbuf_list1 == NULL, "");
+	
 	err = xxxws_cbuf_rechain(cbuf_list0, size);
 	if(err != XXXWS_ERR_OK){
 		return err;
@@ -56,24 +60,22 @@ xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxw
 	while(size){
 		cbuf = *cbuf_list0;
 		XXXWS_ENSURE(cbuf != NULL, "");
-		
 		cbuf_next = cbuf->next;
 		if(size >= cbuf->len){
 			size -= cbuf->len;
 			*cbuf_list0 = cbuf_next;
+			cbuf->next = NULL;
 			xxxws_cbuf_list_append(cbuf_list1, cbuf);
 			if(size == 0){
 				return XXXWS_ERR_OK;
 			}
 		}else{
 			XXXWS_ENSURE(0, "");
-			return XXXWS_ERR_FATAL;
 		}
 		cbuf = cbuf_next;
 	}
 
 	XXXWS_ENSURE(0, "");
-	return XXXWS_ERR_FATAL;
 }
 
 
