@@ -75,8 +75,6 @@ void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_e
             client->httpresp.buf = NULL;
             client->resource = NULL;
 
-            client->httpresp.status_code = 0;
-            
 
 			
 			
@@ -102,7 +100,9 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
             xxxws_schdlr_set_state_timer(4000);
 
 			client->http_pipelining_enabled = 0;
-			
+			client->httpresp.status_code = 0;
+            client->httpresp.keep_alive = 1;
+            
             /*
             ** Don't break and continue to the READ/POLL event .
 			** We may have pipelined packets when processing the previous request.
@@ -629,7 +629,7 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 client->httpresp.status_code = 206;
             }
             
-            client->httpresp.keep_alive = 1;
+            
             
             XXXWS_LOG("FIle '%s' opened, size is (%u)", client->mvc->view, filesize);
             
@@ -833,7 +833,9 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                 
                 xxxws_client_cleanup(client);
                 
-                if(client->httpresp.keep_alive){
+
+                
+                if(client->httpresp.keep_alive && client->http_pipelining_enabled){
                     xxxws_schdlr_state_enter(xxxws_state_http_request_headers_receive);
                 }else{
                     xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
@@ -941,8 +943,6 @@ void xxxws_client_cleanup(xxxws_client_t* client){
 		xxxws_fs_fremove(client->httpreq.file_name);
 		client->httpreq.file_name[0] = '\0';
 	}
-    
-    client->httpresp.status_code = 0;
 }
 
 /* ---------------------------------------------------------------------------------------------------- */
