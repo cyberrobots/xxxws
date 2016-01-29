@@ -205,7 +205,7 @@ xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t*
 	xxxws_err_t err;
 	char* abs_path;
 	
-	XXXWS_LOG("Openning file '%s'..", vrt_path);
+	XXXWS_LOG("Opening file '%s'..", vrt_path);
 	
 	XXXWS_ENSURE(mode == XXXWS_FILE_MODE_READ || mode == XXXWS_FILE_MODE_WRITE, "");
 	

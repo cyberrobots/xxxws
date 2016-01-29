@@ -40,6 +40,7 @@ const char* xxxws_schdlr_ev_name[]= {
 
 void xxxws_state_http_connection_accepted(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
+void xxxws_state_http_request_headers_parse(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
@@ -104,54 +105,41 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
 			
             /*
             ** Don't break and continue to the READ/POLL event .
-			** We may have pipelined packets during processing the previous request.
+			** We may have pipelined packets when processing the previous request.
             */
         };//break;
         case xxxws_schdlr_EV_READ:
-        {
-
-        };//break;
-        case xxxws_schdlr_EV_POLL:
         {
             cbuf = xxxws_schdlr_socket_read();
             xxxws_cbuf_list_append(&client->rcv_cbuf_list, cbuf);
             cbuf_list_print(client->rcv_cbuf_list);
             
-            err = xxxws_http_request_parse(client);
+            /*
+            ** Reset poll if enabled. If not enabled and not needed it will be disabled
+            ** according to the result of xxxws_http_request_headers_received()
+            */
+            xxxws_schdlr_set_state_poll(0);
+        }//break;
+        case xxxws_schdlr_EV_POLL:
+        {
+            err = xxxws_http_request_headers_received(client);
             switch(err){
                 case XXXWS_ERR_OK:
                     XXXWS_LOG("HTTP Headers received! [len is %u]", client->httpreq.headers_len);
-					
-					err = xxxws_cbuf_list_split(&client->rcv_cbuf_list, client->httpreq.headers_len, &client->httpreq.cbuf_list);
-					switch(err){
-						case XXXWS_ERR_OK:
-							break;
-						case XXXWS_ERR_TEMP:
-							xxxws_schdlr_set_state_poll_backoff();
-							return;
-							break;
-						default:
-							XXXWS_ENSURE(0, "");
-							xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
-							break;
-					};
-					
-					if(client->httpreq.body_len){
-						xxxws_schdlr_state_enter(xxxws_state_http_request_body_receive);
-					}else{
-						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response);
-					}
+					xxxws_schdlr_state_enter(xxxws_state_http_request_headers_parse);
+                    break;
+                case XXXWS_ERR_READ:
+                    xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
                     break;
                 case XXXWS_ERR_TEMP:
-				    xxxws_schdlr_set_state_poll_backoff();
-					return;
+                    xxxws_schdlr_set_state_poll_backoff();
+                    return;
                     break;
                 case XXXWS_ERR_FATAL:
                     xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
                     break;
                 default:
                     XXXWS_ENSURE(0, "");
-                    xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
                     break;
             };
         }break;
@@ -171,6 +159,66 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
     };
 }
 
+void xxxws_state_http_request_headers_parse(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
+    xxxws_err_t err;
+    
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
+    switch(ev){
+        case xxxws_schdlr_EV_ENTRY:
+        {
+            xxxws_schdlr_set_state_timer(4000);
+            xxxws_schdlr_set_state_poll(0);
+        };break;
+        case xxxws_schdlr_EV_READ:
+        {
+
+        }break;
+        case xxxws_schdlr_EV_POLL:
+        {
+            err = xxxws_http_request_headers_parse(client);
+            switch(err){
+                case XXXWS_ERR_OK:
+                    if(client->httpreq.body_len){
+                        xxxws_schdlr_state_enter(xxxws_state_http_request_body_receive);
+                    }else{
+                        xxxws_schdlr_state_enter(xxxws_state_prepare_http_response);
+                    }
+                    break;
+                case XXXWS_ERR_TEMP:
+                    xxxws_schdlr_set_state_poll_backoff();
+                    return;
+                    break;
+                case XXXWS_ERR_FATAL:
+                    xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
+                    break;
+                default:
+                    XXXWS_ENSURE(0, "");
+                    break;
+            };
+
+            
+            if(client->httpreq.body_len){
+                xxxws_schdlr_state_enter(xxxws_state_http_request_body_receive);
+            }else{
+                xxxws_schdlr_state_enter(xxxws_state_prepare_http_response);
+            } 
+        }break;
+        case xxxws_schdlr_EV_CLOSED:
+        {
+            xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+        }break;
+        case xxxws_schdlr_EV_TIMER:
+        {
+            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
+            xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+        }break;
+        default:
+        {
+            XXXWS_ENSURE(0, "");
+        }break;
+    };
+}
 
 void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_cbuf_t* cbuf;
@@ -893,6 +941,8 @@ void xxxws_client_cleanup(xxxws_client_t* client){
 		xxxws_fs_fremove(client->httpreq.file_name);
 		client->httpreq.file_name[0] = '\0';
 	}
+    
+    client->httpresp.status_code = 0;
 }
 
 /* ---------------------------------------------------------------------------------------------------- */

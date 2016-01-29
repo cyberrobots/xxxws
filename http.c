@@ -1,18 +1,46 @@
 #include "xxxws.h" 
 
-xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client){
+xxxws_err_t xxxws_http_request_headers_received(xxxws_client_t* client){
+    uint32_t index0;
+    xxxws_err_t err;
+
+    index0 = xxxws_cbuf_strstr(client->rcv_cbuf_list, 0, "\r\n\r\n", 0);
+    if(index0 == -1){
+        return XXXWS_ERR_READ;
+    }
+
+    client->httpreq.headers_len = index0 + 4;
+    client->httpreq.body_len = 0;
+    
+    err = xxxws_cbuf_list_split(&client->rcv_cbuf_list, client->httpreq.headers_len, &client->httpreq.cbuf_list);
+    switch(err){
+        case XXXWS_ERR_OK:
+            return XXXWS_ERR_OK;
+            break;
+        case XXXWS_ERR_TEMP:
+            return XXXWS_ERR_TEMP;
+            break;
+        default:
+            XXXWS_ENSURE(0, "");
+            break;
+    };
+}
+
+xxxws_err_t xxxws_http_request_headers_parse(xxxws_client_t* client){
     uint32_t index0;
     uint32_t index1;
     
-    index0 = xxxws_cbuf_strstr(client->httpreq.cbuf_list, 0, "\r\n\r\n", 0);
+#if 0
+    index0 = xxxws_cbuf_strstr(client->rcv_cbuf_list, 0, "\r\n\r\n", 0);
     if(index0 == -1){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_READ;
     }
     
     client->httpreq.headers_len = index0 + 4;
     client->httpreq.body_len = 0;
     client->httpreq.unstored_len = client->httpreq.headers_len + client->httpreq.body_len;
-	
+#endif
+    
     /*
     ** Get HTTP method
     */
@@ -42,16 +70,22 @@ xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client){
     index1--;
     
     while(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, index1, " ", 0) == 0){index1--;}
+    XXXWS_LOG("URL INDEX[%u,%u]!", index0, index1);
     
-    char* url = xxxws_mem_malloc(index1 - index0 + 1 + 1);
+    char* url = xxxws_mem_malloc(index1 - index0 + 1 + 1 /* '\0' */ + strlen(XXXWS_FS_INDEX_HTML_VROOT) + 10 /* index.html */);
     if(!url){
         return XXXWS_ERR_TEMP;
     }
     
-    XXXWS_LOG("URL INDEX[%u,%u]!", index0, index1);
-    
-    xxxws_cbuf_strcpy(client->httpreq.cbuf_list, index0, index1, url);
-    
+    if(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, index0, "/ ", 0) == 0){
+        /*
+        ** Convert '/' to '/{index_html_partition}/index.html
+        */
+        strcpy(url, XXXWS_FS_INDEX_HTML_VROOT"index.html");
+    }else{
+        xxxws_cbuf_strcpy(client->httpreq.cbuf_list, index0, index1, url);
+    }
+
     XXXWS_LOG("URL = '%s'!", url);
     
     client->httpreq.url = url;

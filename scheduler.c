@@ -289,6 +289,7 @@ void xxxws_schdlr_exec(xxxws_schdlr_t* schdlr, uint32_t interval_ms){
                     //xxxws_schdlr_history_update(xxxws_schdlr_HIST_RES_RX, received);
                     //xxxws_schdlr_history_get(xxxws_schdlr_HIST_RES_RX);
                     //xxxws_port_sleep(170);
+                    cbuf->len = received;
                     xxxws_cbuf_list_append(&task->cbuf_list, cbuf);
                     //cbuf_print(task->cbuf_list);
                     xxxws_schdlr_throw_event(task, xxxws_schdlr_EV_READ);

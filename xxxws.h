@@ -13,6 +13,7 @@
 typedef enum{
     XXXWS_ERR_OK = 0,
     XXXWS_ERR_TEMP, /* Temporary error, for example out of memory */
+    XXXWS_ERR_READ, /* Function needs more data to process input */
     XXXWS_ERR_FATAL,
     //XXXWS_ERR_NOPROGRESS,
     XXXWS_ERR_FILENOTFOUND,

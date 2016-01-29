@@ -48,7 +48,8 @@ void cbuf_list_print(xxxws_cbuf_t* cbuf);
 /* 
 ** HTTP
 */
-xxxws_err_t xxxws_http_request_parse(xxxws_client_t* client);
+xxxws_err_t xxxws_http_request_headers_received(xxxws_client_t* client);
+xxxws_err_t xxxws_http_request_headers_parse(xxxws_client_t* client);
 xxxws_err_t xxxws_http_response_build(xxxws_client_t* client);
 
 /*
