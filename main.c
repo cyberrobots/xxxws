@@ -12,6 +12,10 @@ void my_controller(req_t* req, mvc_t* mvc){
 }
 #endif
 
+void completed1(void* ptr){
+    XXXWS_LOG("[[ completed1 !!!!!! ]]");
+}
+
 xxxws_err_t controller1(xxxws_client_t* client){
     xxxws_err_t err;
     
@@ -26,6 +30,8 @@ xxxws_err_t controller1(xxxws_client_t* client){
     if(err != XXXWS_ERR_OK){ 
         return err;
     }
+    
+    xxxws_mvc_completed_cb_set(client, completed1, NULL);
     
     return XXXWS_ERR_OK;
 }

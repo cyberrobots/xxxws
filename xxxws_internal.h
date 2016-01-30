@@ -211,6 +211,7 @@ struct xxxws_mvc_attribute_t{
 };
 
 typedef xxxws_err_t (*xxxws_mvc_controller_cb_t)(xxxws_client_t* client);
+typedef void (*xxxws_mvc_completed_cb_t)(void* ptr);
 
 typedef struct xxxws_mvc_controller_t xxxws_mvc_controller_t;
 struct xxxws_mvc_controller_t{
@@ -224,6 +225,8 @@ typedef struct xxxws_mvc_t xxxws_mvc_t;
 struct xxxws_mvc_t{
 	char* view;
     xxxws_mvc_attribute_t* attributes;
+    xxxws_mvc_completed_cb_t completed_cb;
+    void* completed_cb_data;
 };
 
 xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client);
@@ -234,6 +237,8 @@ xxxws_err_t xxxws_mvc_controller_add(xxxws_t* server, const char* url, xxxws_mvc
 xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url);
 xxxws_err_t xxxws_mvc_attribute_set(xxxws_client_t* client, char* name, char* value);
 xxxws_mvc_attribute_t* xxxws_mvc_attribute_get(xxxws_client_t* client, char* name);
+
+xxxws_err_t xxxws_mvc_completed_cb_set(xxxws_client_t* client, xxxws_mvc_completed_cb_t cb, void* data);
 
 /* 
 ** Pre-processors

@@ -8,6 +8,9 @@ xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client){
     client->mvc->view = NULL;
     client->mvc->attributes = NULL;
     
+    client->mvc->completed_cb = NULL;
+    client->mvc->completed_cb_data = NULL;
+    
     return XXXWS_ERR_OK;
 }
 
@@ -20,70 +23,81 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
     xxxws_err_t err;
     xxxws_mvc_controller_t* controller;
     
-    if(!(client->mvc = xxxws_mem_malloc(sizeof(xxxws_mvc_t)))){
-        return XXXWS_ERR_POLL;
+    err = xxxws_mvc_get_empty(client);
+    if(err != XXXWS_ERR_OK){
+        return err;
     }
     
     while(1){
-        client->mvc->view = NULL;
-        client->mvc->attributes = NULL;
-        
         controller = xxxws_mvc_controller_get(client->server, client->httpreq.url);
         if(controller){
             XXXWS_LOG("Calling user defined controller..");
+            
+            XXXWS_ASSERT(client->mvc->view == NULL, "");
+            XXXWS_ASSERT(client->mvc->attributes == NULL, "");
+
+            client->mvc->completed_cb = NULL;
+            //client->mvc->completed_cb_data = NULL;
+            XXXWS_ASSERT(client->mvc->completed_cb_data == NULL, ""); // possible memory leak for the user
+            
             err = controller->cb(client);
             XXXWS_ASSERT(err == XXXWS_ERR_OK || err == XXXWS_ERR_POLL || err == XXXWS_ERR_FATAL, "");
             if(err != XXXWS_ERR_OK){
                 xxxws_mvc_release(client);
                 return err;
             }
-        }
-        
-        if(client->mvc->view){
-            /*
-            ** User set a new view during controller cb execution
-            */
-            if(strcmp(client->httpreq.url, client->mvc->view) == 0){
-                xxxws_mem_free(client->mvc->view);
-                client->mvc->view = NULL;
-                
-                /* 
-                ** Handle this case as if no view has been set to
-                ** avoid infinite loop if user returned a view
-                ** equal to the one requested by HTTP client.
+            
+            if(client->mvc->view){
+                /*
+                ** User set a new view during controller cb execution
                 */
-            }else{
-                xxxws_mvc_attribute_t* attribute_next;
-                
-                xxxws_mem_free(client->httpreq.url);
-                client->httpreq.url = client->mvc->view;
-                client->mvc->view = NULL;
-                
-                while(client->mvc->attributes){
-                    attribute_next = client->mvc->attributes->next;
-                    if(client->mvc->attributes->name){
-                        xxxws_mem_free(client->mvc->attributes->name);
-                    }
-                    if(client->mvc->attributes->value){
-                        xxxws_mem_free(client->mvc->attributes->value);
-                    }
-                    xxxws_mem_free(client->mvc->attributes);
-                    client->mvc->attributes = attribute_next;
-                };
+                if(strcmp(client->httpreq.url, client->mvc->view) == 0){
+                    xxxws_mem_free(client->mvc->view);
+                    client->mvc->view = NULL;
+                    
+                    /* 
+                    ** Handle this case as if no view has been set to
+                    ** avoid infinite loop if user returned a view
+                    ** equal to the one requested by HTTP client.
+                    */
+                    break;
+                }else{
+                    xxxws_mvc_attribute_t* attribute_next;
+                    
+                    xxxws_mem_free(client->httpreq.url);
+                    client->httpreq.url = client->mvc->view;
+                    client->mvc->view = NULL;
+                    
+                    while(client->mvc->attributes){
+                        attribute_next = client->mvc->attributes->next;
+                        if(client->mvc->attributes->name){
+                            xxxws_mem_free(client->mvc->attributes->name);
+                        }
+                        if(client->mvc->attributes->value){
+                            xxxws_mem_free(client->mvc->attributes->value);
+                        }
+                        xxxws_mem_free(client->mvc->attributes);
+                        client->mvc->attributes = attribute_next;
+                    };
 
-                continue;
+                    continue;
+                }
+            }else{
+                /*
+                ** No view set, use the one requested by the HTTP client
+                */
+                break;
             }
-        }
-        
-        if(!client->mvc->view){
+        }else{
             /*
-            ** No view set, use the one requested by the HTTP client
+            ** No controller has been assigned for the specific URL
             */
-            client->mvc->view = client->httpreq.url;
-            client->httpreq.url = NULL;
             break;
         }
     };
+    
+    client->mvc->view = client->httpreq.url;
+    client->httpreq.url = NULL;
     
     return XXXWS_ERR_OK;
 }
@@ -221,6 +235,14 @@ xxxws_mvc_attribute_t* xxxws_mvc_attribute_get(xxxws_client_t* client, char* nam
     }
     
     return NULL;
+}
+
+xxxws_err_t xxxws_mvc_completed_cb_set(xxxws_client_t* client, xxxws_mvc_completed_cb_t cb, void* data){
+    
+    client->mvc->completed_cb = cb;
+    client->mvc->completed_cb_data = data;
+
+    return XXXWS_ERR_OK;
 }
 
 #if 0

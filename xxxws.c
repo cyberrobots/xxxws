@@ -47,6 +47,7 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
 void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_cleanup(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
+void xxxws_state_http_keepalive(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev);
 void xxxws_client_cleanup(xxxws_client_t* client);
 
@@ -394,6 +395,12 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             ** Release mvc
             */
             if(client->mvc){
+                if(client->mvc->completed_cb){
+                    client->mvc->completed_cb(client->mvc->completed_cb_data);
+                    client->mvc->completed_cb = NULL;
+                    client->mvc->completed_cb_data = NULL;
+                };
+                
                 xxxws_mvc_release(client);
             }
             
@@ -831,12 +838,8 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                     client->resource = NULL;
                 }
                 
-                xxxws_client_cleanup(client);
-                
-
-                
                 if(client->httpresp.keep_alive && client->http_pipelining_enabled){
-                    xxxws_schdlr_state_enter(xxxws_state_http_request_headers_receive);
+                    xxxws_schdlr_state_enter(xxxws_state_http_keepalive);
                 }else{
                     xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
                 }
@@ -862,6 +865,49 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
     };
 }
 
+void xxxws_state_http_keepalive(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
+	
+	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
+	
+    switch(ev){
+        case xxxws_schdlr_EV_ENTRY:
+        {           
+            if(client->mvc){
+                if(client->mvc->completed_cb){
+                    client->mvc->completed_cb(client->mvc->completed_cb_data);
+                    client->mvc->completed_cb = NULL;
+                    client->mvc->completed_cb_data = NULL;
+                };
+            }
+            
+            xxxws_client_cleanup(client);
+            
+            xxxws_schdlr_state_enter(xxxws_state_http_request_headers_receive);
+            
+        }break;
+        case xxxws_schdlr_EV_READ:
+        {
+
+        }break;
+        case xxxws_schdlr_EV_POLL:
+        {
+
+        }break;
+        case xxxws_schdlr_EV_CLOSED:
+        {
+
+        }break;
+        case xxxws_schdlr_EV_TIMER:
+        {
+
+        }break;
+        default:
+        {
+            XXXWS_ASSERT(0, "");
+        }break;
+    };
+}
+
 void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
 	
 	XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
@@ -869,12 +915,23 @@ void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
+            if(client->mvc){
+                if(client->mvc->completed_cb){
+                    client->mvc->completed_cb(client->mvc->completed_cb_data);
+                    client->mvc->completed_cb = NULL;
+                    client->mvc->completed_cb_data = NULL;
+                };
+            }
+            
             xxxws_client_cleanup(client);
+            
 			if(client->rcv_cbuf_list){
 				xxxws_cbuf_list_free(client->rcv_cbuf_list );
 				client->rcv_cbuf_list  = NULL;
 			}
+ 
             xxxws_schdlr_state_enter(NULL);
+            
         }break;
         case xxxws_schdlr_EV_READ:
         {
