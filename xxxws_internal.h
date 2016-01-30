@@ -207,6 +207,7 @@ typedef struct xxxws_mvc_t xxxws_mvc_t;
 struct xxxws_mvc_t{
     //uint8_t errors;
 	char* view;
+    void* attributes;
 	//list_t attrlist;
 };
 

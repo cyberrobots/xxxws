@@ -26,8 +26,15 @@ xxxws_err_t controller1(xxxws_client_t* client){
     return XXXWS_ERR_OK;
 }
 
-xxxws_err_t controller2(){
+xxxws_err_t controller2(xxxws_client_t* client){
+    xxxws_err_t err;
+    
     XXXWS_LOG("[[ Controller 2 ]]");
+    
+    err = xxxws_mvc_set_view(client, XXXWS_FS_ROM_VRT_ROOT"ctrl1.html");
+    if(err != XXXWS_ERR_OK){ 
+        return err;
+    }
     
     return XXXWS_ERR_OK;
 }

@@ -23,32 +23,53 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
         return XXXWS_ERR_TEMP;
     }
     
-    client->mvc->view = NULL;
-
-    controller = xxxws_mvc_controller_get(client->server, client->httpreq.url);
-    if(controller){
-        XXXWS_LOG("Calling user defined controller..");
-        err = controller->cb(client);
-        XXXWS_ENSURE(err == XXXWS_ERR_OK || err == XXXWS_ERR_TEMP || err == XXXWS_ERR_FATAL, "");
-        if(err != XXXWS_ERR_OK){
-            xxxws_mvc_release(client);
-            return err;
+    while(1){
+        client->mvc->view = NULL;
+        client->mvc->attributes = NULL;
+        
+        controller = xxxws_mvc_controller_get(client->server, client->httpreq.url);
+        if(controller){
+            XXXWS_LOG("Calling user defined controller..");
+            err = controller->cb(client);
+            XXXWS_ENSURE(err == XXXWS_ERR_OK || err == XXXWS_ERR_TEMP || err == XXXWS_ERR_FATAL, "");
+            if(err != XXXWS_ERR_OK){
+                xxxws_mvc_release(client);
+                return err;
+            }
         }
-    }
-    
-    if(client->mvc->view){
-        /*
-        ** User set a new view during controller cb execution
-        */
-        xxxws_mem_free(client->httpreq.url);
-        client->httpreq.url = NULL;
-    }else{
-        /*
-        ** No view set, use the one requested by the HTTP client
-        */
-        client->mvc->view = client->httpreq.url;
-        client->httpreq.url = NULL;
-    }
+        
+        if(client->mvc->view){
+            /*
+            ** User set a new view during controller cb execution
+            */
+            if(strcmp(client->httpreq.url, client->mvc->view) == 0){
+                xxxws_mem_free(client->mvc->view);
+                client->mvc->view = NULL;
+                
+                /* 
+                ** Handle this case as if no view has been set to
+                ** avoid infinite loop if user returned a view
+                ** equal to the one requested by HTTP client.
+                */
+            }else{
+                xxxws_mem_free(client->httpreq.url);
+                client->httpreq.url = client->mvc->view;
+                
+                // FREE client->mvc->attributes
+                client->mvc->attributes = NULL;
+                continue;
+            }
+        }
+        
+        if(!client->mvc->view){
+            /*
+            ** No view set, use the one requested by the HTTP client
+            */
+            client->mvc->view = client->httpreq.url;
+            client->httpreq.url = NULL;
+            break;
+        }
+    };
     
     return XXXWS_ERR_OK;
 }
@@ -60,8 +81,8 @@ xxxws_err_t xxxws_mvc_set_view(xxxws_client_t* client, char* view){
         client->mvc->view = NULL;
     }
     
-    if(view == NULL){
-        return XXXWS_ERR_TEMP;
+    if(strcmp(view, "/") == 0){
+        view = XXXWS_FS_INDEX_HTML_VROOT"index.html";
     }
     
     client->mvc->view = xxxws_mem_malloc(strlen(view) + 1);
