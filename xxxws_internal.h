@@ -203,23 +203,15 @@ xxxws_err_t xxxws_fs_fremove(char* vrt_path);
 /* 
 ** MVC
 */
-typedef struct xxxws_mvc_t xxxws_mvc_t;
-struct xxxws_mvc_t{
-    //uint8_t errors;
-	char* view;
-    void* attributes;
-	//list_t attrlist;
+typedef struct xxxws_mvc_attribute_t xxxws_mvc_attribute_t;
+struct xxxws_mvc_attribute_t{
+    char* name;
+    char* value;
+    xxxws_mvc_attribute_t* next;
 };
 
-xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client);
-xxxws_err_t xxxws_mvc_release(xxxws_client_t* client);
-xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client);
-
-/* 
-** Controllers
-*/
 typedef xxxws_err_t (*xxxws_mvc_controller_cb_t)(xxxws_client_t* client);
- 
+
 typedef struct xxxws_mvc_controller_t xxxws_mvc_controller_t;
 struct xxxws_mvc_controller_t{
     const char* url;
@@ -228,8 +220,19 @@ struct xxxws_mvc_controller_t{
     xxxws_mvc_controller_t* next;
 };
 
+typedef struct xxxws_mvc_t xxxws_mvc_t;
+struct xxxws_mvc_t{
+	char* view;
+    xxxws_mvc_attribute_t* attributes;
+};
+
+xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client);
+xxxws_err_t xxxws_mvc_release(xxxws_client_t* client);
+xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client);
+
 xxxws_err_t xxxws_mvc_controller_add(xxxws_t* server, const char* url, xxxws_mvc_controller_cb_t cb, uint8_t http_methods_mask);
 xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url);
+xxxws_err_t xxxws_mvc_attribute(xxxws_client_t* client, char* name, char* value);
 
 /* 
 ** Pre-processors

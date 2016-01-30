@@ -22,6 +22,10 @@ xxxws_err_t controller1(xxxws_client_t* client){
         return err;
     }
     
+    err = xxxws_mvc_attribute(client, "attr1", "attr1_value");
+    if(err != XXXWS_ERR_OK){ 
+        return err;
+    }
     
     return XXXWS_ERR_OK;
 }

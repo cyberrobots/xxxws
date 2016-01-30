@@ -6,7 +6,8 @@ xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client){
     }
     
     client->mvc->view = NULL;
-
+    client->mvc->attributes = NULL;
+    
     return XXXWS_ERR_OK;
 }
 
@@ -52,11 +53,23 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
                 ** equal to the one requested by HTTP client.
                 */
             }else{
+                xxxws_mvc_attribute_t* attribute_next;
+                
                 xxxws_mem_free(client->httpreq.url);
                 client->httpreq.url = client->mvc->view;
                 
-                // FREE client->mvc->attributes
-                client->mvc->attributes = NULL;
+                while(client->mvc->attributes){
+                    attribute_next = client->mvc->attributes->next;
+                    if(!client->mvc->attributes->name){
+                        xxxws_mem_free(client->mvc->attributes->name);
+                    }
+                    if(!client->mvc->attributes->value){
+                        xxxws_mem_free(client->mvc->attributes->value);
+                    }
+                    xxxws_mem_free(client->mvc->attributes);
+                    client->mvc->attributes = attribute_next;
+                };
+
                 continue;
             }
         }
@@ -98,13 +111,28 @@ xxxws_err_t xxxws_mvc_set_view(xxxws_client_t* client, char* view){
 }
 
 xxxws_err_t xxxws_mvc_release(xxxws_client_t* client){
+    xxxws_mvc_attribute_t* attribute_next;
+    
     if(client->mvc->view){
         xxxws_mem_free(client->mvc->view);
         client->mvc->view = NULL;
     }
     
+    while(client->mvc->attributes){
+        attribute_next = client->mvc->attributes->next;
+        if(!client->mvc->attributes->name){
+            xxxws_mem_free(client->mvc->attributes->name);
+        }
+        if(!client->mvc->attributes->value){
+            xxxws_mem_free(client->mvc->attributes->value);
+        }
+        xxxws_mem_free(client->mvc->attributes);
+        client->mvc->attributes = attribute_next;
+    };
+    
     xxxws_mem_free(client->mvc);
-    client->mvc = NULL;   
+    client->mvc = NULL; 
+    
     return XXXWS_ERR_OK;
 }
 
@@ -147,6 +175,37 @@ xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url){
 }
 
 
+xxxws_err_t xxxws_mvc_attribute(xxxws_client_t* client, char* name, char* value){
+    xxxws_mvc_attribute_t* attribute;
+    
+    XXXWS_ENSURE(client != NULL, "");
+    XXXWS_ENSURE(name != NULL, "");
+    XXXWS_ENSURE(strlen(name) > 0, "");
+    
+    attribute = xxxws_mem_malloc(sizeof(xxxws_mvc_attribute_t));
+    if(!attribute){
+        return XXXWS_ERR_TEMP;
+    }
+    
+    attribute->name = xxxws_mem_malloc(strlen(name) + 1);
+    if(!attribute->name){
+        xxxws_mem_free(attribute);
+        return XXXWS_ERR_TEMP;
+    }
+    
+    attribute->value = xxxws_mem_malloc(strlen(value) + 1);
+    if(!attribute->value){
+        xxxws_mem_free(attribute->name);
+        xxxws_mem_free(attribute);
+        return XXXWS_ERR_TEMP;
+    }
+    
+    attribute->next = client->mvc->attributes;
+    client->mvc->attributes = attribute;
+    
+    return XXXWS_ERR_OK;
+}
+    
 #if 0
 /////////////////////////////////////////////////////////////////////
 typedef struct xxxws_req_param_t xxxws_req_param_t;
