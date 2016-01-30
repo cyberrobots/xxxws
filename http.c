@@ -17,11 +17,11 @@ xxxws_err_t xxxws_http_request_headers_received(xxxws_client_t* client){
         case XXXWS_ERR_OK:
             return XXXWS_ERR_OK;
             break;
-        case XXXWS_ERR_TEMP:
-            return XXXWS_ERR_TEMP;
+        case XXXWS_ERR_POLL:
+            return XXXWS_ERR_POLL;
             break;
         default:
-            XXXWS_ENSURE(0, "");
+            XXXWS_ASSERT(0, "");
             break;
     };
 }
@@ -74,7 +74,7 @@ xxxws_err_t xxxws_http_request_headers_parse(xxxws_client_t* client){
     
     char* url = xxxws_mem_malloc(index1 - index0 + 1 + 1 /* '\0' */ + strlen(XXXWS_FS_INDEX_HTML_VROOT) + 10 /* index.html */);
     if(!url){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     if(xxxws_cbuf_strcmp(client->httpreq.cbuf_list, index0, "/ ", 0) == 0){
@@ -159,7 +159,7 @@ xxxws_err_t xxxws_http_add_response_header(xxxws_client_t* client, char* header_
     uint16_t header_name_len;
     uint16_t header_value_len;
     
-    XXXWS_ENSURE(client->httpresp.buf_index == 0,"");
+    XXXWS_ASSERT(client->httpresp.buf_index == 0,"");
     
     /*
     ** Terminate HTTP Response
@@ -173,7 +173,7 @@ xxxws_err_t xxxws_http_add_response_header(xxxws_client_t* client, char* header_
             /*
             ** HTTP response headers should always fit in the allocated buffer.
             */
-            XXXWS_ENSURE(0,"");
+            XXXWS_ASSERT(0,"");
             return XXXWS_ERR_FATAL;
         }
     }
@@ -197,7 +197,7 @@ xxxws_err_t xxxws_http_add_response_header(xxxws_client_t* client, char* header_
         /*
         ** HTTP response headers should always fit in the allocated buffer.
         */
-        XXXWS_ENSURE(0,"");
+        XXXWS_ASSERT(0,"");
         return XXXWS_ERR_FATAL;
     } 
 }

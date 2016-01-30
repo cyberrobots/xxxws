@@ -42,12 +42,12 @@ xxxws_cbuf_t* xxxws_schdlr_socket_read(){
 
 
 void xxxws_schdlr_set_state_timer(uint32_t timer_delta){
-    XXXWS_ENSURE(xxxws_schdlr_current_task != NULL, "");
+    XXXWS_ASSERT(xxxws_schdlr_current_task != NULL, "");
     xxxws_schdlr_current_task->timer_delta = timer_delta;
 }
 
 void xxxws_schdlr_set_state_poll(uint32_t poll_delta){
-    XXXWS_ENSURE(xxxws_schdlr_current_task != NULL, "");
+    XXXWS_ASSERT(xxxws_schdlr_current_task != NULL, "");
     xxxws_schdlr_current_task->poll_delta = poll_delta;
 }
 
@@ -65,7 +65,7 @@ void xxxws_schdlr_set_state_poll_backoff(){
 
 
 void xxxws_schdlr_set_state(state_t state){
-    XXXWS_ENSURE(xxxws_schdlr_current_task != NULL, "");
+    XXXWS_ASSERT(xxxws_schdlr_current_task != NULL, "");
     xxxws_schdlr_current_task->new_state = state;
 }
 
@@ -113,7 +113,7 @@ void xxxws_schdlr_throw_event(xxxws_schdlr_task_t* task, xxxws_schdlr_ev_t ev){
     }
     
     /* Not an error but its a good practice to set a timeout.. */
-    XXXWS_ENSURE(task->timer_delta != XXXWS_TIME_INFINITE, "");
+    XXXWS_ASSERT(task->timer_delta != XXXWS_TIME_INFINITE, "");
 }
 
 void xxxws_schdlr_exec(xxxws_schdlr_t* schdlr, uint32_t interval_ms){
@@ -139,7 +139,7 @@ void xxxws_schdlr_exec(xxxws_schdlr_t* schdlr, uint32_t interval_ms){
     available_client_connections =  ((sizeof(schdlr->socket_readset)/sizeof(xxxws_socket_t)) - 1);
     task = schdlr->tasks.next;
     while(task != &schdlr->tasks){
-        XXXWS_ENSURE(task_index < ((sizeof(schdlr->socket_readset)/sizeof(xxxws_socket_t)) - 1), "");
+        XXXWS_ASSERT(task_index < ((sizeof(schdlr->socket_readset)/sizeof(xxxws_socket_t)) - 1), "");
         --available_client_connections;
         
         min_poll_delta = (min_poll_delta > task->poll_delta) ? task->poll_delta : min_poll_delta;
@@ -460,8 +460,8 @@ void xxxws_schdlr_poll(xxxws_schdlr_t* schdlr, uint32_t intervalms){
 xxxws_err_t xxxws_schdlr_init(xxxws_schdlr_t* schdlr, uint16_t port, state_t client_connected_state){
     xxxws_err_t err;
     
-    XXXWS_ENSURE(schdlr != NULL,"");
-    XXXWS_ENSURE(client_connected_state != NULL,"");
+    XXXWS_ASSERT(schdlr != NULL,"");
+    XXXWS_ASSERT(client_connected_state != NULL,"");
     
     xxxws_schdlr_current_task = NULL;
     
@@ -525,7 +525,7 @@ void state2(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
         }break;
         default:
         {
-            XXXWS_ENSURE(0, "");
+            XXXWS_ASSERT(0, "");
         }break;
     };
 }
@@ -562,7 +562,7 @@ void state1(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
         }break;
         default:
         {
-            XXXWS_ENSURE(0, "");
+            XXXWS_ASSERT(0, "");
         }break;
     };
 }
@@ -576,7 +576,7 @@ void client_connected_state(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
         }break;
         default:
         {
-            XXXWS_ENSURE(0, "");
+            XXXWS_ASSERT(0, "");
         }break;
     };
 }

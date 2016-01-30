@@ -2,7 +2,7 @@
 
 xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client){
     if(!(client->mvc = xxxws_mem_malloc(sizeof(xxxws_mvc_t)))){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     client->mvc->view = NULL;
@@ -21,7 +21,7 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
     xxxws_mvc_controller_t* controller;
     
     if(!(client->mvc = xxxws_mem_malloc(sizeof(xxxws_mvc_t)))){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     while(1){
@@ -32,7 +32,7 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
         if(controller){
             XXXWS_LOG("Calling user defined controller..");
             err = controller->cb(client);
-            XXXWS_ENSURE(err == XXXWS_ERR_OK || err == XXXWS_ERR_TEMP || err == XXXWS_ERR_FATAL, "");
+            XXXWS_ASSERT(err == XXXWS_ERR_OK || err == XXXWS_ERR_POLL || err == XXXWS_ERR_FATAL, "");
             if(err != XXXWS_ERR_OK){
                 xxxws_mvc_release(client);
                 return err;
@@ -57,7 +57,9 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
                 
                 xxxws_mem_free(client->httpreq.url);
                 client->httpreq.url = client->mvc->view;
+                client->mvc->view = NULL;
                 
+                XXXWS_LOG("releasing attributes..");
                 while(client->mvc->attributes){
                     attribute_next = client->mvc->attributes->next;
                     if(!client->mvc->attributes->name){
@@ -68,6 +70,7 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
                     }
                     xxxws_mem_free(client->mvc->attributes);
                     client->mvc->attributes = attribute_next;
+                    XXXWS_LOG("released..");
                 };
 
                 continue;
@@ -100,7 +103,7 @@ xxxws_err_t xxxws_mvc_set_view(xxxws_client_t* client, char* view){
     
     client->mvc->view = xxxws_mem_malloc(strlen(view) + 1);
     if(!client->mvc->view){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     strcpy(client->mvc->view, view);
@@ -140,13 +143,13 @@ xxxws_err_t xxxws_mvc_release(xxxws_client_t* client){
 xxxws_err_t xxxws_mvc_controller_add(xxxws_t* server, const char* url, xxxws_mvc_controller_cb_t cb, uint8_t http_methods_mask){
     xxxws_mvc_controller_t* controller;
     
-    XXXWS_ENSURE(server != NULL, "");
-    XXXWS_ENSURE(url != NULL, "");
-    XXXWS_ENSURE(cb != NULL, "");
+    XXXWS_ASSERT(server != NULL, "");
+    XXXWS_ASSERT(url != NULL, "");
+    XXXWS_ASSERT(cb != NULL, "");
     
     controller = xxxws_mem_malloc(sizeof(xxxws_mvc_controller_t));
     if(!controller){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     controller->url = url;
@@ -178,26 +181,26 @@ xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url){
 xxxws_err_t xxxws_mvc_attribute(xxxws_client_t* client, char* name, char* value){
     xxxws_mvc_attribute_t* attribute;
     
-    XXXWS_ENSURE(client != NULL, "");
-    XXXWS_ENSURE(name != NULL, "");
-    XXXWS_ENSURE(strlen(name) > 0, "");
+    XXXWS_ASSERT(client != NULL, "");
+    XXXWS_ASSERT(name != NULL, "");
+    XXXWS_ASSERT(strlen(name) > 0, "");
     
     attribute = xxxws_mem_malloc(sizeof(xxxws_mvc_attribute_t));
     if(!attribute){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     attribute->name = xxxws_mem_malloc(strlen(name) + 1);
     if(!attribute->name){
         xxxws_mem_free(attribute);
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     attribute->value = xxxws_mem_malloc(strlen(value) + 1);
     if(!attribute->value){
         xxxws_mem_free(attribute->name);
         xxxws_mem_free(attribute);
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     attribute->next = client->mvc->attributes;

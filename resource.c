@@ -77,7 +77,7 @@ xxxws_err_t xxxws_resource_open_dynamic(xxxws_client_t* client, uint32_t seekpos
     }
 
     if(!(client->resource->priv = xxxws_mem_malloc(sizeof(xxxws_pp_dynamic_priv_t)))){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     ((xxxws_pp_dynamic_priv_t*)client->resource->priv)->eofflag = 0;
     ((xxxws_pp_dynamic_priv_t*)client->resource->priv)->buf_index = 0;
@@ -347,7 +347,7 @@ xxxws_err_t xxxws_resource_open(xxxws_client_t* client, uint32_t seekpos, uint32
     *filesz = 0;
     
     if(!(client->resource = xxxws_mem_malloc(sizeof(xxxws_resource_t)))){
-        return XXXWS_ERR_TEMP;
+        return XXXWS_ERR_POLL;
     }
     
     //if(client->mvc.attrlist != NULL) {
@@ -376,10 +376,10 @@ xxxws_err_t xxxws_resource_open(xxxws_client_t* client, uint32_t seekpos, uint32
             ** The requested file does not exist. Maybe it is an internal file?
             */
             break;
-        case XXXWS_ERR_TEMP:
+        case XXXWS_ERR_POLL:
             xxxws_mem_free(client->resource);
             client->resource = NULL;
-            return XXXWS_ERR_TEMP;
+            return XXXWS_ERR_POLL;
             break;
         default:
             break;
@@ -395,14 +395,14 @@ xxxws_err_t xxxws_resource_open(xxxws_client_t* client, uint32_t seekpos, uint32
 
 xxxws_err_t xxxws_resource_read(xxxws_client_t* client, uint8_t* readbuf, uint32_t readbufsz, uint32_t* readbufszactual){
     xxxws_err_t err;
-    XXXWS_ENSURE(client->resource != NULL, "");
+    XXXWS_ASSERT(client->resource != NULL, "");
     err = client->resource->read(client, readbuf, readbufsz, readbufszactual);
     return err;
 }
 
 xxxws_err_t xxxws_resource_close(xxxws_client_t* client){
     xxxws_err_t err;
-    XXXWS_ENSURE(client->resource != NULL, "");
+    XXXWS_ASSERT(client->resource != NULL, "");
     err = client->resource->close(client);
     if(err != XXXWS_ERR_OK){
         return err;

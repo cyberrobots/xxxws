@@ -519,7 +519,7 @@ xxxws_err_t xxxws_port_fs_disk_fopen(char* abs_path, xxxws_file_mode_t mode, xxx
     FIL* file;
     FRESULT res;
     if(!(file = xxxws_mem_malloc(sizeof(FIL))){
-    return XXXWS_ERR_TEMP;
+    return XXXWS_ERR_POLL;
 }
     fr = f_open(file, abs_path, FA_READ);
     if((res = f_open(file, abs_path, FA_READ)) != FR_OK){

@@ -49,7 +49,7 @@ xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxw
 	xxxws_cbuf_t* cbuf_next;
 	xxxws_err_t err;
 	
-	XXXWS_ENSURE(*cbuf_list1 == NULL, "");
+	XXXWS_ASSERT(*cbuf_list1 == NULL, "");
 	
 	err = xxxws_cbuf_rechain(cbuf_list0, size);
 	if(err != XXXWS_ERR_OK){
@@ -59,8 +59,8 @@ xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxw
 	*cbuf_list1 = NULL;
 	while(size){
 		cbuf = *cbuf_list0;
-		XXXWS_ENSURE(cbuf != NULL, "");
-        XXXWS_ENSURE(size >= cbuf->len, "");
+		XXXWS_ASSERT(cbuf != NULL, "");
+        XXXWS_ASSERT(size >= cbuf->len, "");
         
 		cbuf_next = cbuf->next;
         size -= cbuf->len;
@@ -75,7 +75,7 @@ xxxws_err_t xxxws_cbuf_list_split(xxxws_cbuf_t** cbuf_list0, uint32_t size, xxxw
 		cbuf = cbuf_next;
 	}
 
-	XXXWS_ENSURE(0, "");
+	XXXWS_ASSERT(0, "");
 }
 
 
@@ -102,7 +102,7 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
     xxxws_cbuf_t* cbuf;
 	uint16_t alloc_sz1, alloc_sz2;
 	
-	XXXWS_ENSURE((*cbuf_list) != NULL, "");
+	XXXWS_ASSERT((*cbuf_list) != NULL, "");
 	
     if(size == 0){
         return XXXWS_ERR_OK;
@@ -122,8 +122,8 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
         }
 	}
     
-    XXXWS_ENSURE(cbuf != NULL, "");
-    XXXWS_ENSURE(cbuf->len > size, "");
+    XXXWS_ASSERT(cbuf != NULL, "");
+    XXXWS_ASSERT(cbuf->len > size, "");
 
    
 	/*
@@ -142,7 +142,7 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
 		/* Prepend */
 		cbuf_new = xxxws_cbuf_alloc(&(cbuf->data)[0], alloc_sz1);
 		if(!cbuf_new){
-			return XXXWS_ERR_TEMP;
+			return XXXWS_ERR_POLL;
 		}
 		cbuf_new->next = cbuf;
         if(cbuf_prev == NULL){
@@ -156,7 +156,7 @@ xxxws_err_t xxxws_cbuf_rechain(xxxws_cbuf_t** cbuf_list, uint32_t size){
 		/* Append */
 		cbuf_new = xxxws_cbuf_alloc(&cbuf->data[size], alloc_sz2);
 		if(!cbuf_new){
-			return XXXWS_ERR_TEMP;
+			return XXXWS_ERR_POLL;
 		}
 		cbuf_new->next = cbuf->next;
 		cbuf->next = cbuf_new;
@@ -178,7 +178,7 @@ uint8_t xxxws_cbuf_strcmp(xxxws_cbuf_t* cbuf, uint32_t index, char* str, uint8_t
 		cbuf = cbuf->next;
 	}
     
-    XXXWS_ENSURE(cbuf != NULL, "");
+    XXXWS_ASSERT(cbuf != NULL, "");
     
 	strLen = strlen(str);
     
@@ -207,7 +207,7 @@ void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1, cha
     uint32_t copy_len;
     uint32_t index;
 
-    XXXWS_ENSURE(index0 <= index1, "");
+    XXXWS_ASSERT(index0 <= index1, "");
     
     *str = '\0';
 
@@ -220,7 +220,7 @@ void xxxws_cbuf_strcpy(xxxws_cbuf_t* cbuf, uint32_t index0, uint32_t index1, cha
     
     copy_len = index1 - index0 + 1;
 	for(index = 0; index < copy_len; index++){
-        XXXWS_ENSURE(cbuf != NULL, "");
+        XXXWS_ASSERT(cbuf != NULL, "");
         
 		str[index] = cbuf->data[index0++];
 

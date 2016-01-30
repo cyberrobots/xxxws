@@ -79,13 +79,13 @@ xxxws_err_t xxxws_fs_ram_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_fil
         XXXWS_LOG("allocating new ram file..");
 		fs_ram_file = xxxws_mem_malloc(sizeof(xxxws_fs_ram_file_t));
 		if(!fs_ram_file){
-			return XXXWS_ERR_TEMP;
+			return XXXWS_ERR_POLL;
 		}
 		
 		fs_ram_file->name = xxxws_mem_malloc(strlen(abs_path) + 1);
 		if(!fs_ram_file->name){
 			xxxws_mem_free(fs_ram_file);
-			return XXXWS_ERR_TEMP;
+			return XXXWS_ERR_POLL;
 		}
 		strcpy(fs_ram_file->name, abs_path);
 		fs_ram_file->cbuf = NULL;
@@ -139,7 +139,7 @@ xxxws_err_t xxxws_fs_ram_fseek(xxxws_file_t* file, uint32_t seekpos){
 		return err;
 	}
 	
-	XXXWS_ENSURE(seekpos < filesize, "");
+	XXXWS_ASSERT(seekpos < filesize, "");
 	
 	if(seekpos > filesize){
 		return XXXWS_ERR_FATAL;
@@ -223,13 +223,13 @@ xxxws_err_t xxxws_fs_ram_fclose(xxxws_file_t* file){
     fs_ram_file = file_ram->fd;
     
 	if(file->mode == XXXWS_FILE_MODE_READ){
-		XXXWS_ENSURE(fs_ram_file->read_handles > 0, "");
+		XXXWS_ASSERT(fs_ram_file->read_handles > 0, "");
 		fs_ram_file->read_handles--;
         return XXXWS_ERR_OK;
 	}
 	
 	if(file->mode == XXXWS_FILE_MODE_WRITE){
-		XXXWS_ENSURE(fs_ram_file->write_handles > 0, "");
+		XXXWS_ASSERT(fs_ram_file->write_handles > 0, "");
 		fs_ram_file->write_handles--;
         return XXXWS_ERR_OK;
 	}
@@ -260,7 +260,7 @@ xxxws_err_t xxxws_fs_ram_fremove(char* abs_path){
 		/*
 		** File not found
 		*/
-		XXXWS_ENSURE(fs_ram_file, "");
+		XXXWS_ASSERT(fs_ram_file, "");
 		return XXXWS_ERR_FATAL;
 	}
 			

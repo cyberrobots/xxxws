@@ -39,7 +39,7 @@ void xxxws_stats_update(xxxws_stats_res_t recource_id, uint32_t value){
             recource_type = xxxws_stats_RES_TYPE_INTERVAL;
             break;
         default:
-            XXXWS_ENSURE(0, "");
+            XXXWS_ASSERT(0, "");
             break;
     };
 

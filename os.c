@@ -68,7 +68,7 @@ void xxxws_mem_free(void* vptr){
 */
 
 void xxxws_socket_close(xxxws_socket_t* socket){
-    XXXWS_ENSURE(socket->actively_closed == 0,"");
+    XXXWS_ASSERT(socket->actively_closed == 0,"");
     if(socket->actively_closed){return;}
     xxxws_port_socket_close(socket);
     socket->actively_closed = 1;
@@ -83,7 +83,7 @@ xxxws_err_t xxxws_socket_listen(uint16_t port, xxxws_socket_t* server_socket){
 xxxws_err_t xxxws_socket_accept(xxxws_socket_t* server_socket, uint32_t timeout_ms, xxxws_socket_t* client_socket){
     xxxws_err_t err;
     
-    XXXWS_ENSURE(server_socket->actively_closed == 0, "");
+    XXXWS_ASSERT(server_socket->actively_closed == 0, "");
     
     if((server_socket->passively_closed) || (server_socket->actively_closed)){
         return XXXWS_ERR_FATAL;
@@ -100,7 +100,7 @@ xxxws_err_t xxxws_socket_accept(xxxws_socket_t* server_socket, uint32_t timeout_
 xxxws_err_t xxxws_socket_read(xxxws_socket_t* client_socket, uint8_t* data, uint16_t datalen, uint32_t* received){
     xxxws_err_t err;
     
-    XXXWS_ENSURE(client_socket->actively_closed == 0, "");
+    XXXWS_ASSERT(client_socket->actively_closed == 0, "");
     
     *received = 0;
     if((client_socket->passively_closed) || (client_socket->actively_closed)){
@@ -114,7 +114,7 @@ xxxws_err_t xxxws_socket_read(xxxws_socket_t* client_socket, uint8_t* data, uint
 xxxws_err_t xxxws_socket_write(xxxws_socket_t* client_socket, uint8_t* data, uint16_t datalen, uint32_t* sent){
     xxxws_err_t err;
     
-    XXXWS_ENSURE(client_socket->actively_closed == 0, "");
+    XXXWS_ASSERT(client_socket->actively_closed == 0, "");
     
     *sent = 0;
     if((client_socket->passively_closed) || (client_socket->actively_closed)){
@@ -210,7 +210,7 @@ xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t*
 	
 	XXXWS_LOG("Opening file '%s'..", vrt_path);
 	
-	XXXWS_ENSURE(mode == XXXWS_FILE_MODE_READ || mode == XXXWS_FILE_MODE_WRITE, "");
+	XXXWS_ASSERT(mode == XXXWS_FILE_MODE_READ || mode == XXXWS_FILE_MODE_WRITE, "");
 	
     
 	partition = xxxws_fs_get_partition(vrt_path);
@@ -228,7 +228,7 @@ xxxws_err_t xxxws_fs_fopen(char* vrt_path, xxxws_file_mode_t mode, xxxws_file_t*
 		return XXXWS_ERR_OK;
 	}else if(err == XXXWS_ERR_FILENOTFOUND){
 		/* Continue */
-	}else if(err == XXXWS_ERR_TEMP){
+	}else if(err == XXXWS_ERR_POLL){
 		/* Continue */
 	}else{
 		err = XXXWS_ERR_FATAL;
@@ -245,9 +245,9 @@ uint8_t xxxws_fs_fisopened(xxxws_file_t* file){
 xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize){
     xxxws_err_t err;
 	
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-	XXXWS_ENSURE(file->partition, "");
+	XXXWS_ASSERT(file->status == XXXWS_FILE_STATUS_OPENED, "");
+	XXXWS_ASSERT(file->mode == XXXWS_FILE_MODE_READ, "");
+	XXXWS_ASSERT(file->partition, "");
 	
 	err = file->partition->fsize(file, filesize);
 	
@@ -257,9 +257,9 @@ xxxws_err_t xxxws_fs_fsize(xxxws_file_t* file, uint32_t* filesize){
 xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
     xxxws_err_t err;
 	
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-	XXXWS_ENSURE(file->partition, "");
+	XXXWS_ASSERT(file->status == XXXWS_FILE_STATUS_OPENED, "");
+	XXXWS_ASSERT(file->mode == XXXWS_FILE_MODE_READ, "");
+	XXXWS_ASSERT(file->partition, "");
 	
 	err = file->partition->fseek(file, seekpos);
 
@@ -269,9 +269,9 @@ xxxws_err_t xxxws_fs_fseek(xxxws_file_t* file, uint32_t seekpos){
 xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbufsize, uint32_t* actualreadsize){
     xxxws_err_t err;
     
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_READ, "");
-	XXXWS_ENSURE(file->partition, "");
+	XXXWS_ASSERT(file->status == XXXWS_FILE_STATUS_OPENED, "");
+	XXXWS_ASSERT(file->mode == XXXWS_FILE_MODE_READ, "");
+	XXXWS_ASSERT(file->partition, "");
 	
 	*actualreadsize = 0;
 	err = file->partition->fread(file, readbuf, readbufsize, actualreadsize);
@@ -285,9 +285,9 @@ xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbu
 xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t write_buf_sz, uint32_t* actual_write_sz){
     xxxws_err_t err;
     
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->mode == XXXWS_FILE_MODE_WRITE, "");
-	XXXWS_ENSURE(file->partition, "");
+	XXXWS_ASSERT(file->status == XXXWS_FILE_STATUS_OPENED, "");
+	XXXWS_ASSERT(file->mode == XXXWS_FILE_MODE_WRITE, "");
+	XXXWS_ASSERT(file->partition, "");
 	
 	*actual_write_sz = 0;
 	err = file->partition->fwrite(file, write_buf, write_buf_sz, actual_write_sz);
@@ -303,8 +303,8 @@ xxxws_err_t xxxws_fs_fwrite(xxxws_file_t* file, uint8_t* write_buf, uint32_t wri
 xxxws_err_t xxxws_fs_fclose(xxxws_file_t* file){
     xxxws_err_t err;
     
-	XXXWS_ENSURE(file->status == XXXWS_FILE_STATUS_OPENED, "");
-	XXXWS_ENSURE(file->partition, "");
+	XXXWS_ASSERT(file->status == XXXWS_FILE_STATUS_OPENED, "");
+	XXXWS_ASSERT(file->partition, "");
 	
 	err = file->partition->fclose(file);
     
