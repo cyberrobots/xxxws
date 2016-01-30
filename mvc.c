@@ -59,18 +59,16 @@ xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
                 client->httpreq.url = client->mvc->view;
                 client->mvc->view = NULL;
                 
-                XXXWS_LOG("releasing attributes..");
                 while(client->mvc->attributes){
                     attribute_next = client->mvc->attributes->next;
-                    if(!client->mvc->attributes->name){
+                    if(client->mvc->attributes->name){
                         xxxws_mem_free(client->mvc->attributes->name);
                     }
-                    if(!client->mvc->attributes->value){
+                    if(client->mvc->attributes->value){
                         xxxws_mem_free(client->mvc->attributes->value);
                     }
                     xxxws_mem_free(client->mvc->attributes);
                     client->mvc->attributes = attribute_next;
-                    XXXWS_LOG("released..");
                 };
 
                 continue;
@@ -123,10 +121,10 @@ xxxws_err_t xxxws_mvc_release(xxxws_client_t* client){
     
     while(client->mvc->attributes){
         attribute_next = client->mvc->attributes->next;
-        if(!client->mvc->attributes->name){
+        if(client->mvc->attributes->name){
             xxxws_mem_free(client->mvc->attributes->name);
         }
-        if(!client->mvc->attributes->value){
+        if(client->mvc->attributes->value){
             xxxws_mem_free(client->mvc->attributes->value);
         }
         xxxws_mem_free(client->mvc->attributes);
@@ -178,7 +176,7 @@ xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url){
 }
 
 
-xxxws_err_t xxxws_mvc_attribute(xxxws_client_t* client, char* name, char* value){
+xxxws_err_t xxxws_mvc_attribute_set(xxxws_client_t* client, char* name, char* value){
     xxxws_mvc_attribute_t* attribute;
     
     XXXWS_ASSERT(client != NULL, "");
@@ -208,7 +206,23 @@ xxxws_err_t xxxws_mvc_attribute(xxxws_client_t* client, char* name, char* value)
     
     return XXXWS_ERR_OK;
 }
+
+xxxws_mvc_attribute_t* xxxws_mvc_attribute_get(xxxws_client_t* client, char* name){
+    xxxws_mvc_attribute_t* attribute;
     
+    XXXWS_LOG("Searching user defined attribute with name '%s'", name);
+    
+    attribute = client->mvc->attributes;
+    while(attribute){
+        if(strcmp(attribute->name, name) == 0){
+            return attribute;
+        }
+        attribute = attribute->next;
+    }
+    
+    return NULL;
+}
+
 #if 0
 /////////////////////////////////////////////////////////////////////
 typedef struct xxxws_req_param_t xxxws_req_param_t;
