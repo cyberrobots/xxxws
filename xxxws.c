@@ -465,8 +465,8 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             */
             char status_code_page_name[25];
             sprintf(status_code_page_name, XXXWS_FS_ERROR_HTML_VROOT"%u.html", client->httpresp.status_code);
-            xxxws_mvc_set_view(client, status_code_page_name);
-            if(xxxws_mvc_get_errors(client)){
+            err = xxxws_mvc_set_view(client, status_code_page_name);
+            if(err != XXXWS_ERR_OK){
                 /* Propably memory error */
                 xxxws_mvc_release(client);
                 xxxws_schdlr_set_state_poll_backoff();
@@ -955,6 +955,8 @@ xxxws_t* xxxws_new(){
         return NULL;
     }
     
+    server->controllers = NULL;
+    
     return server;
 }
 
@@ -967,6 +969,7 @@ xxxws_err_t xxxws_start(xxxws_t* server, uint16_t port){
 #endif
 
     err = xxxws_schdlr_init(&server->scheduler, 9000, xxxws_state_http_connection_accepted);
+    server->scheduler.server = server;
     
     return err;
 }
@@ -975,6 +978,5 @@ xxxws_err_t xxxws_poll(xxxws_t* server, uint32_t intervalms){
     xxxws_schdlr_poll(&server->scheduler, intervalms);
     return XXXWS_ERR_OK;
 }
-
 
 

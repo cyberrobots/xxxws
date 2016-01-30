@@ -12,6 +12,26 @@ void my_controller(req_t* req, mvc_t* mvc){
 }
 #endif
 
+xxxws_err_t controller1(xxxws_client_t* client){
+    xxxws_err_t err;
+    
+    XXXWS_LOG("[[ Controller 1 ]]");
+    
+    err = xxxws_mvc_set_view(client, XXXWS_FS_ROM_VRT_ROOT"ctrl1_mvc.html");
+    if(err != XXXWS_ERR_OK){ 
+        return err;
+    }
+    
+    
+    return XXXWS_ERR_OK;
+}
+
+xxxws_err_t controller2(){
+    XXXWS_LOG("[[ Controller 2 ]]");
+    
+    return XXXWS_ERR_OK;
+}
+
 int main(){
     xxxws_t* server;
     
@@ -19,8 +39,8 @@ int main(){
 	
     server = xxxws_new();
     
-    //xxxws_controller(&server, "/action1.html", action1_controller, XXXWS_HTTP_METHOD_POST);
-    //xxxws_controller(&server, "/action2.html", action2_controller, XXXWS_HTTP_METHOD_GET);
+    xxxws_mvc_controller_add(server, XXXWS_FS_ROM_VRT_ROOT"ctrl1.html", controller1, XXXWS_HTTP_METHOD_GET | XXXWS_HTTP_METHOD_POST);
+    xxxws_mvc_controller_add(server, XXXWS_FS_ROM_VRT_ROOT"ctrl2.html", controller2, XXXWS_HTTP_METHOD_GET | XXXWS_HTTP_METHOD_POST);
     
     xxxws_start(server, 9000);
     

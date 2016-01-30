@@ -463,11 +463,49 @@ xxxws_err_t xxxws_port_fs_rom_fopen(char* abs_path, xxxws_file_mode_t mode, xxxw
 		return XXXWS_ERR_FATAL;
 	}
 	
-	(file)->descriptor.rom.ptr = (uint8_t*)test_file;
-	(file)->descriptor.rom.size = sizeof(test_file);// - 1;
-	(file)->descriptor.rom.pos = 0;
-	return XXXWS_ERR_OK;
-	//return XXXWS_ERR_FILENOTFOUND;
+    if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"index.html") == 0){
+        (file)->descriptor.rom.ptr = (uint8_t*)test_file;
+        (file)->descriptor.rom.size = sizeof(test_file);// - 1;
+        (file)->descriptor.rom.pos = 0;
+        return XXXWS_ERR_OK;
+    }
+    
+    if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"ctrl1.html") == 0){
+        (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl1.html > page";
+        (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
+        (file)->descriptor.rom.pos = 0;
+        return XXXWS_ERR_OK;
+    }
+    
+    if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"ctrl1_mvc.html") == 0){
+    (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl1_mvc.html > page !!!!!!!!!!!!!!";
+        (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
+        (file)->descriptor.rom.pos = 0;
+        return XXXWS_ERR_OK;
+    }
+    
+    if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"ctrl2.html") == 0){
+    (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl2.html > page";
+        (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
+        (file)->descriptor.rom.pos = 0;
+        return XXXWS_ERR_OK;
+    }
+    
+    if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"404.html") == 0){
+    (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < 404.html > page";
+        (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
+        (file)->descriptor.rom.pos = 0;
+        return XXXWS_ERR_OK;
+    }
+    
+    if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"500.html") == 0){
+    (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < 500.html > page";
+        (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
+        (file)->descriptor.rom.pos = 0;
+        return XXXWS_ERR_OK;
+    }
+    
+	return XXXWS_ERR_FILENOTFOUND;
 }
 
 xxxws_err_t xxxws_port_fs_disk_fopen(char* abs_path, xxxws_file_mode_t mode, xxxws_file_t* file){

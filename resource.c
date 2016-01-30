@@ -7,7 +7,8 @@ xxxws_err_t xxxws_resource_open_static(xxxws_client_t* client, uint32_t seekpos,
     /*
     ** Discard the first '/' if it does exist
     */
-    file_name = (client->mvc->view[0] == '/') ? &client->mvc->view[1] : client->mvc->view;
+    //file_name = (client->mvc->view[0] == '/') ? &client->mvc->view[1] : client->mvc->view;
+    file_name = client->mvc->view;
     
     err = xxxws_fs_fopen(file_name, XXXWS_FILE_MODE_READ, &client->resource->file);
     if(err != XXXWS_ERR_OK){

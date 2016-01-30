@@ -205,7 +205,7 @@ xxxws_err_t xxxws_fs_fremove(char* vrt_path);
 */
 typedef struct xxxws_mvc_t xxxws_mvc_t;
 struct xxxws_mvc_t{
-    uint8_t errors;
+    //uint8_t errors;
 	char* view;
 	//list_t attrlist;
 };
@@ -213,7 +213,22 @@ struct xxxws_mvc_t{
 xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client);
 xxxws_err_t xxxws_mvc_release(xxxws_client_t* client);
 xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client);
-uint8_t xxxws_mvc_get_errors(xxxws_client_t* client);
+
+/* 
+** Controllers
+*/
+typedef xxxws_err_t (*xxxws_mvc_controller_cb_t)(xxxws_client_t* client);
+ 
+typedef struct xxxws_mvc_controller_t xxxws_mvc_controller_t;
+struct xxxws_mvc_controller_t{
+    const char* url;
+    xxxws_mvc_controller_cb_t cb;
+    uint8_t http_methods_mask;
+    xxxws_mvc_controller_t* next;
+};
+
+xxxws_err_t xxxws_mvc_controller_add(xxxws_t* server, const char* url, xxxws_mvc_controller_cb_t cb, uint8_t http_methods_mask);
+xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url);
 
 /* 
 ** Pre-processors
@@ -264,6 +279,8 @@ struct xxxws_schdlr_task_t{
 
 typedef struct xxxws_schdlr_t xxxws_schdlr_t;
 struct xxxws_schdlr_t{
+    xxxws_t* server;
+    
 	uint32_t non_poll_tic_ms;
     
     xxxws_socket_t socket;
@@ -374,6 +391,7 @@ struct xxxws_http_t{
 struct xxxws_client_t{
     xxxws_t* server;
     xxxws_socket_t socket;
+    
 	xxxws_cbuf_t* rcv_cbuf_list;
     xxxws_httpreq_t httpreq;
     xxxws_httpresp_t httpresp;

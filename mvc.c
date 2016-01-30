@@ -5,7 +5,6 @@ xxxws_err_t xxxws_mvc_get_empty(xxxws_client_t* client){
         return XXXWS_ERR_TEMP;
     }
     
-    client->mvc->errors = 0;
     client->mvc->view = NULL;
 
     return XXXWS_ERR_OK;
@@ -17,45 +16,44 @@ xxxws_err_t xxxws_mvc_get_from_user(xxxws_client_t* client){
 }
 
 xxxws_err_t xxxws_mvc_configure(xxxws_client_t* client){
-#if 0
-	controller_t* controller = workingserver->controllers;
-	while(controller){
-		if(strcmp(controller->url, url) == 0){break;}
-		controller = controller->next;
-	}
-	if(!controller){
-		//mvc_set_view(url);
-	}else{
-		workingmvc = mvc;
-		err = controller->func(req, mvc);
-		workingmvc = NULL;
-		// user wants to abort
-		//if(err == ERR_FATAL){return ERR_FATAL;}
-		// no view set
-		//if(!mvc->view){mvc_set_view(url);}
-	}
-	
-	if(!mvc->view){mvc_set_view(url);}
-	
-	if(mvc->errflag){
-		return ERR_FATAL;
-	}
-	
-	return ERR_OK;
-#else
+    xxxws_err_t err;
+    xxxws_mvc_controller_t* controller;
+    
     if(!(client->mvc = xxxws_mem_malloc(sizeof(xxxws_mvc_t)))){
         return XXXWS_ERR_TEMP;
     }
     
-    client->mvc->errors = 0;
-    client->mvc->view = client->httpreq.url;
-    client->httpreq.url = NULL;
+    client->mvc->view = NULL;
+
+    controller = xxxws_mvc_controller_get(client->server, client->httpreq.url);
+    if(controller){
+        XXXWS_LOG("Calling user defined controller..");
+        err = controller->cb(client);
+        XXXWS_ENSURE(err == XXXWS_ERR_OK || err == XXXWS_ERR_TEMP || err == XXXWS_ERR_FATAL, "");
+        if(err != XXXWS_ERR_OK){
+            xxxws_mvc_release(client);
+            return err;
+        }
+    }
+    
+    if(client->mvc->view){
+        /*
+        ** User set a new view during controller cb execution
+        */
+        xxxws_mem_free(client->httpreq.url);
+        client->httpreq.url = NULL;
+    }else{
+        /*
+        ** No view set, use the one requested by the HTTP client
+        */
+        client->mvc->view = client->httpreq.url;
+        client->httpreq.url = NULL;
+    }
     
     return XXXWS_ERR_OK;
-#endif
 }
 
-void xxxws_mvc_set_view(xxxws_client_t* client, char* view){
+xxxws_err_t xxxws_mvc_set_view(xxxws_client_t* client, char* view){
     
     if(client->mvc->view){
         xxxws_mem_free(client->mvc->view);
@@ -63,16 +61,19 @@ void xxxws_mvc_set_view(xxxws_client_t* client, char* view){
     }
     
     if(view == NULL){
-        return;
+        return XXXWS_ERR_TEMP;
     }
     
     client->mvc->view = xxxws_mem_malloc(strlen(view) + 1);
     if(!client->mvc->view){
-        client->mvc->errors = 1;
-        return;
+        return XXXWS_ERR_TEMP;
     }
     
     strcpy(client->mvc->view, view);
+    
+    XXXWS_LOG("MVC view set to '%s'", client->mvc->view);
+    
+    return XXXWS_ERR_OK;
 }
 
 xxxws_err_t xxxws_mvc_release(xxxws_client_t* client){
@@ -86,9 +87,44 @@ xxxws_err_t xxxws_mvc_release(xxxws_client_t* client){
     return XXXWS_ERR_OK;
 }
 
-uint8_t xxxws_mvc_get_errors(xxxws_client_t* client){
-    return client->mvc->errors;
+
+xxxws_err_t xxxws_mvc_controller_add(xxxws_t* server, const char* url, xxxws_mvc_controller_cb_t cb, uint8_t http_methods_mask){
+    xxxws_mvc_controller_t* controller;
+    
+    XXXWS_ENSURE(server != NULL, "");
+    XXXWS_ENSURE(url != NULL, "");
+    XXXWS_ENSURE(cb != NULL, "");
+    
+    controller = xxxws_mem_malloc(sizeof(xxxws_mvc_controller_t));
+    if(!controller){
+        return XXXWS_ERR_TEMP;
+    }
+    
+    controller->url = url;
+    controller->cb = cb;
+    controller->http_methods_mask = http_methods_mask;
+    controller->next = server->controllers;
+    server->controllers = controller;
+    
+    return XXXWS_ERR_OK;
 }
+
+xxxws_mvc_controller_t* xxxws_mvc_controller_get(xxxws_t* server, char* url){
+    xxxws_mvc_controller_t* controller;
+    
+    XXXWS_LOG("Searching user defined controller for url '%s'", url);
+    
+    controller = server->controllers;
+    while(controller){
+        if(strcmp(controller->url, url) == 0){
+            return controller;
+        }
+        controller = controller->next;
+    }
+    
+    return NULL;
+}
+
 
 #if 0
 /////////////////////////////////////////////////////////////////////

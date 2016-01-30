@@ -212,6 +212,7 @@ void xxxws_schdlr_exec(xxxws_schdlr_t* schdlr, uint32_t interval_ms){
                 }else{
                     task->client = client;
                     task->client->socket = client_socket;
+                    task->client->server = schdlr->server;
                     task->poll_delta = XXXWS_TIME_INFINITE;
                     task->timer_delta = XXXWS_TIME_INFINITE;
                     task->cbuf_list = NULL;
