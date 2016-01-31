@@ -312,8 +312,10 @@ void xxxws_schdlr_set_state_poll_backoff(void);
 void xxxws_schdlr_set_state(state_t state);
 xxxws_cbuf_t* xxxws_schdlr_socket_read();
 
-
-#define xxxws_schdlr_state_enter(state) xxxws_schdlr_set_state(state);return;
+#define xxxws_schdlr_state_enter(state)                     xxxws_schdlr_set_state(state);return;
+#define xxxws_schdlr_state_poll(poll_delta)                 xxxws_schdlr_set_state_poll(poll_delta);
+#define xxxws_schdlr_state_poll_backoff()                   xxxws_schdlr_set_state_poll_backoff();return;
+#define xxxws_schdlr_state_timer(timer_delta)               xxxws_schdlr_set_state_timer(timer_delta);
 
 void xxxws_schdlr_poll(xxxws_schdlr_t* schdlr, uint32_t intervalms);
 xxxws_err_t xxxws_schdlr_init(xxxws_schdlr_t* schdlr, uint16_t port, state_t client_connected_state);

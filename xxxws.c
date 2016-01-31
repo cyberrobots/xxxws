@@ -1,10 +1,10 @@
 #include "xxxws.h" 
 
 /*
-	- 	xxxws_schdlr_set_state_poll(0); should be used at the enad of the particular event to re-enable fast polling,
+	- 	xxxws_schdlr_state_poll(0); should be used at the enad of the particular event to re-enable fast polling,
 		and not after every ERR_OK result. [else it will cause ps leak in the following case {ERR_OK:poll(0)}+ -> {ERR_MEM}+
 		
-	- 	every xxxws_schdlr_set_state_poll_backoff(); should be follwed by return;
+	- 	every xxxws_schdlr_state_poll_backoff(); should be follwed by return;
 */
 
 /*
@@ -98,7 +98,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(4000);
+            xxxws_schdlr_state_timer(4000);
 
 			client->http_pipelining_enabled = 0;
 			client->httpresp.status_code = 0;
@@ -119,7 +119,7 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
             ** Reset poll if enabled. If not enabled and not needed it will be disabled
             ** according to the result of xxxws_http_request_headers_received()
             */
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_poll(0);
         }//break;
         case xxxws_schdlr_EV_POLL:
         {
@@ -130,11 +130,10 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
 					xxxws_schdlr_state_enter(xxxws_state_http_request_headers_parse);
                     break;
                 case XXXWS_ERR_READ:
-                    xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
+                    xxxws_schdlr_state_poll(XXXWS_TIME_INFINITE);
                     break;
                 case XXXWS_ERR_POLL:
-                    xxxws_schdlr_set_state_poll_backoff();
-                    return;
+                    xxxws_schdlr_state_poll_backoff();
                     break;
                 case XXXWS_ERR_FATAL:
                     xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -150,7 +149,6 @@ void xxxws_state_http_request_headers_receive(xxxws_client_t* client, xxxws_schd
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:
@@ -168,8 +166,8 @@ void xxxws_state_http_request_headers_parse(xxxws_client_t* client, xxxws_schdlr
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(4000);
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_timer(4000);
+            xxxws_schdlr_state_poll(0);
         };break;
         case xxxws_schdlr_EV_READ:
         {
@@ -187,8 +185,7 @@ void xxxws_state_http_request_headers_parse(xxxws_client_t* client, xxxws_schdlr
                     }
                     break;
                 case XXXWS_ERR_POLL:
-                    xxxws_schdlr_set_state_poll_backoff();
-                    return;
+                    xxxws_schdlr_state_poll_backoff();
                     break;
                 case XXXWS_ERR_FATAL:
                     xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -211,7 +208,6 @@ void xxxws_state_http_request_headers_parse(xxxws_client_t* client, xxxws_schdlr
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:
@@ -232,7 +228,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(4000);
+            xxxws_schdlr_state_timer(4000);
             
 			client->httpreq.cbuf_list_offset = 0;
 			
@@ -247,7 +243,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 			xxxws_cbuf_list_append(&client->rcv_cbuf_list, cbuf);
             cbuf_list_print(client->rcv_cbuf_list);
             
-			xxxws_schdlr_set_state_poll(0);
+			xxxws_schdlr_state_poll(0);
         }break;
         case xxxws_schdlr_EV_POLL:
         {
@@ -262,8 +258,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 						strcpy(client->httpreq.file_name, request_file_name);
 						break;
                     case XXXWS_ERR_POLL:
-                        xxxws_schdlr_set_state_poll_backoff();
-						return;
+                        xxxws_schdlr_state_poll_backoff();
                         break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_prepare_http_response_for_error);
@@ -279,7 +274,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				/*
 				** Disable POLL, wait READ
 				*/
-				xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
+				xxxws_schdlr_state_poll(XXXWS_TIME_INFINITE);
 				return;
 			}
 			
@@ -291,8 +286,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				case XXXWS_ERR_OK:
 					break;
 				case XXXWS_ERR_POLL:
-					xxxws_schdlr_set_state_poll_backoff();
-					return;
+					xxxws_schdlr_state_poll_backoff();
 					break;
 				default:
 					XXXWS_ASSERT(0, "");
@@ -314,8 +308,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				switch(err){
 					case XXXWS_ERR_OK:
 						if(!actual_write_sz){
-							xxxws_schdlr_set_state_poll_backoff();
-							return;
+							xxxws_schdlr_state_poll_backoff();
 						}
 						client->httpreq.cbuf_list_offset += actual_write_sz;
 						if(client->httpreq.cbuf_list_offset == cbuf->len){
@@ -342,7 +335,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
 				
 				client->httpreq.cbuf_list = cbuf_next;
 			}
-			xxxws_schdlr_set_state_poll(0);
+			xxxws_schdlr_state_poll(0);
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
@@ -350,7 +343,6 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:
@@ -360,7 +352,7 @@ void xxxws_state_http_request_body_receive(xxxws_client_t* client, xxxws_schdlr_
     };
 }
 
-#if 1
+
 /*
 ** For 404, 500, 400, 405 . Connection will be closed.
 */
@@ -372,8 +364,8 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(5000);
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_timer(5000);
+            xxxws_schdlr_state_poll(0);
             
             /*
             ** Ensure that the status code has been set correctly
@@ -391,36 +383,15 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                 
             }
         
-            /*
-            ** Release mvc
-            */
             if(client->mvc){
                 if(client->mvc->completed_cb){
                     client->mvc->completed_cb(client->mvc->completed_cb_data);
                     client->mvc->completed_cb = NULL;
                     client->mvc->completed_cb_data = NULL;
                 };
-                
-                xxxws_mvc_release(client);
             }
             
-            /*
-            ** Release resource
-            */
-            if(client->resource){
-                xxxws_resource_close(client);
-            }
-            
-			#if 0
-            /*
-            ** Release the received http request to maximize memory to work
-            ** without issues.
-            */
-            if(client->httpreq.cbuf_list){
-                xxxws_cbuf_list_free(client->httpreq.cbuf_list);
-                client->httpreq.cbuf_list = NULL;
-            }
-            #endif
+            xxxws_client_cleanup(client);
 			
             /*
             ** Force keep-alive to close, as we are not sure about the barriers of the 
@@ -437,8 +408,6 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
         }break;
         case xxxws_schdlr_EV_POLL:
         {
-            
-            
             XXXWS_ASSERT(client->mvc == NULL, "");
             XXXWS_ASSERT(client->resource == NULL, "");
             
@@ -450,16 +419,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                 case XXXWS_ERR_OK:
                     break;
                 case XXXWS_ERR_POLL:
-					xxxws_schdlr_set_state_poll_backoff();
-                    return;
-                    break;
-                case XXXWS_ERR_FILENOTFOUND:
-                    XXXWS_ASSERT(0, "");
-                    xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
-                    break;
-                case XXXWS_ERR_FATAL:
-                    XXXWS_ASSERT(0, "");
-                    xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+					xxxws_schdlr_state_poll_backoff();
                     break;
                 default:
                     XXXWS_ASSERT(0, "");
@@ -473,12 +433,18 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             char status_code_page_name[25];
             sprintf(status_code_page_name, XXXWS_FS_ERROR_HTML_VROOT"%u.html", client->httpresp.status_code);
             err = xxxws_mvc_set_view(client, status_code_page_name);
-            if(err != XXXWS_ERR_OK){
-                /* Propably memory error */
-                xxxws_mvc_release(client);
-                xxxws_schdlr_set_state_poll_backoff();
-                return;
-            }
+            switch(err){
+                case XXXWS_ERR_OK:
+                    break;
+                case XXXWS_ERR_POLL:
+                    xxxws_mvc_release(client);
+                    xxxws_schdlr_state_poll_backoff();
+                    break;
+                default:
+                    XXXWS_ASSERT(0, "");
+                    xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
+                    break;
+            };
 
             XXXWS_LOG("[Trying to open error file.............");
             //while(1){}
@@ -486,9 +452,8 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             /*
             ** Try to open it
             */
-            uint32_t filesize;
             if(!(client->resource)){
-                err = xxxws_resource_open(client, 0, &filesize);
+                err = xxxws_resource_open(client, 0, &client->httpresp.file_size);
                 switch(err){
                     case XXXWS_ERR_OK:
                         /*
@@ -499,8 +464,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                         break;
                     case XXXWS_ERR_POLL:
                         xxxws_mvc_release(client);
-                        xxxws_schdlr_set_state_poll_backoff();
-						return;
+                        xxxws_schdlr_state_poll_backoff();
                         break;
                     case XXXWS_ERR_FILENOTFOUND:
                         /*
@@ -529,7 +493,6 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:
@@ -538,7 +501,7 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
         }break;
     };
 }
-#endif
+
 
 void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     xxxws_err_t err;
@@ -548,8 +511,8 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(5000);
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_timer(5000);
+            xxxws_schdlr_state_poll(0);
 			
 			/*
 			** Since we reached here,  we have succesfully parsed the HTTP request's
@@ -572,8 +535,7 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                     case XXXWS_ERR_OK:
                         break;
                     case XXXWS_ERR_POLL:
-						xxxws_schdlr_set_state_poll_backoff();
-						return;
+						xxxws_schdlr_state_poll_backoff();
                         break;
                     case XXXWS_ERR_FILENOTFOUND:
                         XXXWS_ASSERT(0, "");
@@ -607,8 +569,7 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                     case XXXWS_ERR_OK:
                         break;
                     case XXXWS_ERR_POLL:
-						xxxws_schdlr_set_state_poll_backoff();
-						return;
+						xxxws_schdlr_state_poll_backoff();
                         break;
                     case XXXWS_ERR_FILENOTFOUND:
                         client->httpresp.status_code = 404;
@@ -636,8 +597,6 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
                 client->httpresp.status_code = 206;
             }
             
-            
-            
             XXXWS_LOG("FIle '%s' opened, size is (%u)", client->mvc->view, filesize);
             
             xxxws_schdlr_state_enter(xxxws_state_build_http_response);
@@ -649,7 +608,6 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:
@@ -669,8 +627,8 @@ void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t e
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(5000);
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_timer(5000);
+            xxxws_schdlr_state_poll(0);
         }break;
         case xxxws_schdlr_EV_READ:
         {
@@ -696,8 +654,7 @@ void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t e
             */
             uint16_t buf_size = (XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ < XXXWS_HTTP_RESPONSE_HEADER_MSG_BUF_SZ) ? XXXWS_HTTP_RESPONSE_HEADER_MSG_BUF_SZ : XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ;
             if(!(client->httpresp.buf = xxxws_mem_malloc(buf_size))){
-				xxxws_schdlr_set_state_poll_backoff();
-				return;
+				xxxws_schdlr_state_poll_backoff();
             }else{
                 client->httpresp.buf_index = 0;
                 client->httpresp.buf_len = 0;
@@ -715,7 +672,6 @@ void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t e
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:
@@ -737,8 +693,8 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
-            xxxws_schdlr_set_state_timer(5000);
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_timer(5000);
+            xxxws_schdlr_state_poll(0);
         }break;
         case xxxws_schdlr_EV_READ:
         {
@@ -749,8 +705,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             
             if(!client->httpresp.buf){
                 if(!(client->httpresp.buf = xxxws_mem_malloc(XXXWS_HTTP_RESPONSE_BODY_MSG_BUF_SZ))){
-					xxxws_schdlr_set_state_poll_backoff();
-					return;
+					xxxws_schdlr_state_poll_backoff();
                 }
                 client->httpresp.buf_index = 0;
                 client->httpresp.buf_len = 0;
@@ -775,8 +730,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 						XXXWS_LOG("We just read %u bytes", read_size_actual);
 						break;
 					case XXXWS_ERR_POLL:
-						xxxws_schdlr_set_state_poll_backoff();
-						return;
+						xxxws_schdlr_state_poll_backoff();
 						break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
@@ -804,8 +758,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
 						client->httpresp.size -= send_size_actual;
 						break;
 					case XXXWS_ERR_POLL:
-						xxxws_schdlr_set_state_poll_backoff();
-						return;
+						xxxws_schdlr_state_poll_backoff();
 						break;
 					case XXXWS_ERR_FATAL:
 						xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
@@ -833,11 +786,6 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
             if(client->httpresp.size == 0){
                 XXXWS_LOG("The whole response was sent!!!");
 
-                if(client->resource){
-                    xxxws_resource_close(client);
-                    client->resource = NULL;
-                }
-                
                 if(client->httpresp.keep_alive && client->http_pipelining_enabled){
                     xxxws_schdlr_state_enter(xxxws_state_http_keepalive);
                 }else{
@@ -847,7 +795,7 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
                 XXXWS_LOG("Bytes left(%u)", client->httpresp.size);
             }
 
-            xxxws_schdlr_set_state_poll(0);
+            xxxws_schdlr_state_poll(0);
         }break;
         case xxxws_schdlr_EV_CLOSED:
         {
@@ -855,7 +803,6 @@ void xxxws_state_http_response_send(xxxws_client_t* client, xxxws_schdlr_ev_t ev
         }break;
         case xxxws_schdlr_EV_TIMER:
         {
-            xxxws_schdlr_set_state_poll(XXXWS_TIME_INFINITE);
             xxxws_schdlr_state_enter(xxxws_state_http_disconnect);
         }break;
         default:

@@ -128,6 +128,8 @@ xxxws_err_t xxxws_mvc_set_view(xxxws_client_t* client, char* view){
 xxxws_err_t xxxws_mvc_release(xxxws_client_t* client){
     xxxws_mvc_attribute_t* attribute_next;
     
+    XXXWS_ASSERT(client->mvc->completed_cb_data == NULL, "");
+    
     if(client->mvc->view){
         xxxws_mem_free(client->mvc->view);
         client->mvc->view = NULL;
