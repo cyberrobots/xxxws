@@ -210,12 +210,16 @@ xxxws_err_t xxxws_mvc_attribute_set(xxxws_client_t* client, char* name, char* va
         return XXXWS_ERR_POLL;
     }
     
+    strcpy(attribute->name, name);
+    
     attribute->value = xxxws_mem_malloc(strlen(value) + 1);
     if(!attribute->value){
         xxxws_mem_free(attribute->name);
         xxxws_mem_free(attribute);
         return XXXWS_ERR_POLL;
     }
+    
+    strcpy(attribute->value, value);
     
     attribute->next = client->mvc->attributes;
     client->mvc->attributes = attribute;
@@ -230,7 +234,9 @@ xxxws_mvc_attribute_t* xxxws_mvc_attribute_get(xxxws_client_t* client, char* nam
     
     attribute = client->mvc->attributes;
     while(attribute){
+        XXXWS_LOG("Attribute is '%s'!?", attribute->name)
         if(strcmp(attribute->name, name) == 0){
+            XXXWS_LOG("Attribute found!");
             return attribute;
         }
         attribute = attribute->next;

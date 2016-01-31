@@ -383,9 +383,13 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
                 
             }
         
+            xxxws_mvc_completed_cb_t completed_cb = NULL;
+            void* completed_cb_data = NULL;
+            
             if(client->mvc){
                 if(client->mvc->completed_cb){
-                    client->mvc->completed_cb(client->mvc->completed_cb_data);
+                    completed_cb = client->mvc->completed_cb;
+                    completed_cb_data = client->mvc->completed_cb_data;
                     client->mvc->completed_cb = NULL;
                     client->mvc->completed_cb_data = NULL;
                 };
@@ -393,6 +397,15 @@ void xxxws_state_prepare_http_response_for_error(xxxws_client_t* client, xxxws_s
             
             xxxws_client_cleanup(client);
 			
+            /*
+            ** This cb should be called after client_cleanup() to make sure
+            ** that the web server has closed any file handles and so any files 
+            ** created from within controllre can be now safely removed by the application.
+            */
+            if(completed_cb){
+                completed_cb(completed_cb_data);
+            }
+            
             /*
             ** Force keep-alive to close, as we are not sure about the barriers of the 
             ** current request [header + body size] and so we dont know if we can continue 
@@ -620,8 +633,7 @@ void xxxws_state_prepare_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t
 
 
 void xxxws_state_build_http_response(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
-    xxxws_err_t err;
-    
+
     XXXWS_LOG("[event = %s]", xxxws_schdlr_ev_name[ev]);
     
     switch(ev){
@@ -819,15 +831,28 @@ void xxxws_state_http_keepalive(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {           
+            xxxws_mvc_completed_cb_t completed_cb = NULL;
+            void* completed_cb_data = NULL;
+            
             if(client->mvc){
                 if(client->mvc->completed_cb){
-                    client->mvc->completed_cb(client->mvc->completed_cb_data);
+                    completed_cb = client->mvc->completed_cb;
+                    completed_cb_data = client->mvc->completed_cb_data;
                     client->mvc->completed_cb = NULL;
                     client->mvc->completed_cb_data = NULL;
                 };
             }
             
             xxxws_client_cleanup(client);
+			
+            /*
+            ** This cb should be called after client_cleanup() to make sure
+            ** that the web server has closed any file handles and so any files 
+            ** created from within controllre can be now safely removed by the application.
+            */
+            if(completed_cb){
+                completed_cb(completed_cb_data);
+            }
             
             xxxws_schdlr_state_enter(xxxws_state_http_request_headers_receive);
             
@@ -862,17 +887,30 @@ void xxxws_state_http_disconnect(xxxws_client_t* client, xxxws_schdlr_ev_t ev){
     switch(ev){
         case xxxws_schdlr_EV_ENTRY:
         {
+            xxxws_mvc_completed_cb_t completed_cb = NULL;
+            void* completed_cb_data = NULL;
+            
             if(client->mvc){
                 if(client->mvc->completed_cb){
-                    client->mvc->completed_cb(client->mvc->completed_cb_data);
+                    completed_cb = client->mvc->completed_cb;
+                    completed_cb_data = client->mvc->completed_cb_data;
                     client->mvc->completed_cb = NULL;
                     client->mvc->completed_cb_data = NULL;
                 };
             }
             
             xxxws_client_cleanup(client);
+			
+            /*
+            ** This cb should be called after client_cleanup() to make sure
+            ** that the web server has closed any file handles and so any files 
+            ** created from within controllre can be now safely removed by the application.
+            */
+            if(completed_cb){
+                completed_cb(completed_cb_data);
+            }
             
-			if(client->rcv_cbuf_list){
+            if(client->rcv_cbuf_list){
 				xxxws_cbuf_list_free(client->rcv_cbuf_list );
 				client->rcv_cbuf_list  = NULL;
 			}

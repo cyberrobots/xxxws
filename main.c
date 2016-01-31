@@ -41,7 +41,17 @@ xxxws_err_t controller2(xxxws_client_t* client){
     
     XXXWS_LOG("[[ Controller 2 ]]");
     
-    err = xxxws_mvc_set_view(client, XXXWS_FS_ROM_VRT_ROOT"ctrl1.html");
+    err = xxxws_mvc_attribute_set(client, "attr1", "1111");
+    if(err != XXXWS_ERR_OK){ 
+        return err;
+    }
+    
+    err = xxxws_mvc_attribute_set(client, "attr2", "2222");
+    if(err != XXXWS_ERR_OK){ 
+        return err;
+    }
+    
+    //err = xxxws_mvc_set_view(client, XXXWS_FS_ROM_VRT_ROOT"ctrl1.html");
     if(err != XXXWS_ERR_OK){ 
         return err;
     }

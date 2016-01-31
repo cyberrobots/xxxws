@@ -478,14 +478,14 @@ xxxws_err_t xxxws_port_fs_rom_fopen(char* abs_path, xxxws_file_mode_t mode, xxxw
     }
     
     if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"ctrl1_mvc.html") == 0){
-        (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl1_mvc.html > page !!!!!!!!!!!!!!";
+        (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl1_mvc.html > page !!!!!!!";
         (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
         (file)->descriptor.rom.pos = 0;
         return XXXWS_ERR_OK;
     }
     
     if(strcmp(abs_path, XXXWS_FS_ROM_ABS_ROOT"ctrl2.html") == 0){
-        (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl2.html > page";
+        (file)->descriptor.rom.ptr = (uint8_t*)"This is sample < ctrl2.html > page attr1=<%=attr1%>, attr2=<%=attr2%>, attr3=<%=attr3%>";
         (file)->descriptor.rom.size = strlen((char*) (file)->descriptor.rom.ptr);
         (file)->descriptor.rom.pos = 0;
         return XXXWS_ERR_OK;
