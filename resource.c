@@ -60,15 +60,17 @@ xxxws_err_t xxxws_resource_close_dynamic(xxxws_client_t* client);
 
 typedef struct xxxws_resource_dynamic_priv_t xxxws_resource_dynamic_priv_t;
 struct xxxws_resource_dynamic_priv_t{
-    uint8_t* working_buf;
+    uint8_t* wbuf;
     
-    uint8_t search_buf[128];
-    uint16_t search_buf_index0;
-    uint16_t search_buf_index1;
+    uint8_t sbuf[128]; /* Search buffer */
+    uint16_t sbuf_index0;
+    uint16_t sbuf_index1;
     
-    uint16_t replace_buf_index0;
-    uint16_t replace_buf_index1;
+    uint16_t rbuf_index0; /* Replace buffer */
+    uint16_t rbuf_index1;
     
+	uint8_t shadow_buf_size;
+	
     uint8_t eof;
     uint8_t reset;
 };
@@ -132,178 +134,132 @@ xxxws_err_t xxxws_resource_open_dynamic(xxxws_client_t* client, uint32_t seekpos
     return XXXWS_ERR_OK;
 }
 
-
 xxxws_err_t xxxws_resource_read_dynamic(xxxws_client_t* client, uint8_t* read_buf, uint32_t read_buf_sz, uint32_t* read_buf_sz_actual){
-	uint32_t read_buf_index;
-	uint32_t read_sz_actual;
-	uint32_t read_sz, copy_sz;
-    xxxws_err_t err;
-	uint16_t k;
+	xxxws_resource_dynamic_priv_t* priv = ((xxxws_resource_dynamic_priv_t*)client->resource->priv);
+	uint16_t read_buf_index;
+	uint16_t copy_sz;
 	char* prefix = "<%=";
 	char* suffix = "%>";
-	uint16_t prefix_len = strlen((char*) prefix);
-	uint16_t suffix_len = strlen((char*) suffix);
+	uint16_t prefix_len = strlen(prefix);
+	uint16_t suffix_len = strlen(suffix);
 	char* suffix_ptr;
-	uint8_t request_read;
-	xxxws_resource_dynamic_priv_t* priv = ((xxxws_resource_dynamic_priv_t*)client->resource->priv);
-    
+	uint32_t read_len;
+	uint32_t index;
+	xxxws_err_t err;
+	
     if(priv->reset){
         err = xxxws_fs_fseek(&client->resource->file, 0);
         if(err != XXXWS_ERR_OK){
             return err;
         }
-        priv->working_buf = priv->search_buf;
-        priv->search_buf_index0 = 0;
-        priv->search_buf_index1 = 0;
+        priv->wbuf = priv->sbuf;
+        priv->sbuf_index0 = 0;
+        priv->sbuf_index1 = 0;
+		priv->shadow_buf_size = 0;
+		
         priv->eof = 0;
-        
         priv->reset = 0;
     }
 
+#define shift_and_fill_sbuf(file, priv) \
+{ \
+	for(index = 0; index < priv->sbuf_index1 - priv->sbuf_index0 + priv->shadow_buf_size; index++){\
+		priv->sbuf[index] = priv->sbuf[priv->sbuf_index0 + index]; \
+	} \
+	priv->sbuf_index1 = priv->sbuf_index1 - priv->sbuf_index0 + priv->shadow_buf_size; \
+	priv->sbuf_index0 = 0; \
+	if(!priv->eof){ \
+		err = xxxws_fs_fread(&client->resource->file, &priv->sbuf[priv->sbuf_index1], sizeof(priv->sbuf) - 1 - priv->sbuf_index1, &read_len); \
+		if(err != XXXWS_ERR_OK){ \
+			return err; \
+		} \
+		read_len = (read_len > 0) ? read_len : 0; \
+		if(read_len < sizeof(priv->sbuf) - 1 - priv->sbuf_index1){ \
+			priv->eof = 1; \
+		} \
+	}else{ \
+		read_len = 0; \
+	} \
+	priv->sbuf_index1 += read_len; \
+	priv->sbuf[priv->sbuf_index1] = '\0'; \
+	if(priv->sbuf_index1 <= prefix_len){ \
+		priv->shadow_buf_size = 0; \
+	}else{ \
+		priv->shadow_buf_size = prefix_len - 1; \
+	} \
+	priv->sbuf_index1 -= priv->shadow_buf_size; \
+}	
+		
 	*read_buf_sz_actual = 0;
-	request_read = 0;
 	read_buf_index = 0;
 	while(read_buf_index < read_buf_sz){
-		if(priv->working_buf != priv->search_buf){
-			copy_sz = read_buf_sz - read_buf_index > priv->replace_buf_index1 - priv->replace_buf_index0 ? priv->replace_buf_index1 - priv->replace_buf_index0 : read_buf_sz - read_buf_index;
+		if(priv->wbuf != priv->sbuf){
+			/*
+			** Replace {prefix}{attribute_name}{suffix} with attribute's value
+			*/
+			copy_sz = read_buf_sz - read_buf_index > priv->rbuf_index1 - priv->rbuf_index0 ? priv->rbuf_index1 - priv->rbuf_index0 : read_buf_sz - read_buf_index;
 			if(read_buf){
-                memcpy(&read_buf[read_buf_index], &priv->working_buf[priv->replace_buf_index0], copy_sz);
-            }
+				memcpy(&read_buf[read_buf_index], (uint8_t*) &priv->wbuf[priv->rbuf_index0], copy_sz);
+			}
 			read_buf_index += copy_sz;
-			priv->replace_buf_index0 += copy_sz;
-			if(priv->replace_buf_index0 == priv->replace_buf_index1){
-				priv->working_buf = priv->search_buf;
-				//printf("Switch from replace to search..\r\n");
+			priv->rbuf_index0 += copy_sz;
+			if(priv->rbuf_index0 == priv->rbuf_index1){
+				priv->wbuf = priv->sbuf;
 				continue;
 			}
 		}else{
-			if((request_read) || (priv->search_buf_index0 == priv->search_buf_index1)){
-				if(priv->search_buf_index0){
-					for(k = 0; k < priv->search_buf_index1 - priv->search_buf_index0; k++){
-						priv->search_buf[k] = priv->search_buf[priv->search_buf_index0 + k];
-					}
-				}
-				priv->search_buf_index1 -= priv->search_buf_index0;
-				priv->search_buf_index0 = 0;
-				read_sz = sizeof(priv->search_buf) - priv->search_buf_index1;
-				if(!priv->eof){
-					//printf("Reading %u bytes starting from index %u\r\n", read_sz, priv->search_buf_index1);
-					//int read_sz_actual_ = fread(&priv->search_buf[priv->search_buf_index1], 1, read_sz, file);
-                    //uint32_t read_sz_actual_;
-                    err = xxxws_fs_fread(&client->resource->file, &priv->search_buf[priv->search_buf_index1], read_sz, &read_sz_actual);
-					//read_sz_actual = read_sz_actual_ > 0 ? read_sz_actual_ : 0;
-					//printf("%u bytes read, Buffer is '%s'\r\n", read_sz_actual, &priv->search_buf[priv->search_buf_index0]);
-					
-					priv->search_buf_index1 += read_sz_actual;
-					if(read_sz_actual < read_sz){
-						//printf("Eof!!\r\n");
-						priv->eof = 1;
-					}
-				}else{
-					//break;
-				}
+			/*
+			** Copy input to output until {prefix}{attribute_name}{suffix} is detected.
+			*/
+			if(priv->sbuf_index0 && priv->sbuf_index0 == priv->sbuf_index1){
+				shift_and_fill_sbuf(file, priv);
+				if(priv->sbuf_index0 == priv->sbuf_index1){break;}
 			}
-			if(priv->eof && priv->search_buf_index0 == priv->search_buf_index1){
-				//printf("Done!!\r\n");
-				break;
+			XXXWS_ASSERT( priv->sbuf_index0 <= priv->sbuf_index1, "");
+			if(priv->sbuf_index0 == priv->sbuf_index1){
+				break; /* Whole input processed */
 			}
-			if(priv->search_buf[priv->search_buf_index0] != prefix[0]){
-                if(read_buf){
-                    read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-                }else{
-                    read_buf_index++;
-                    priv->search_buf_index0++;
-                }
-				//printf("1Copying '%c'\r\n", read_buf[read_buf_index - 1]);
-				continue;
-			}else{
-				/*
-				** This is going to delay the swift & read operation if only the
-				** first prefix character is matched (but not the whole prefix)
-				*/
-				if(priv->search_buf_index1 - priv->search_buf_index0 >= prefix_len){
-					if(memcmp(&priv->search_buf[priv->search_buf_index0], prefix, prefix_len) != 0){
-                        if(read_buf){
-                            read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-                        }else{
-                            read_buf_index++;
-                            priv->search_buf_index0++;
-                        }
-						//printf("2Copying '%c'\r\n", read_buf[read_buf_index - 1]);
-						continue;
-					}
-				}
-				if(!priv->eof && (priv->search_buf_index1 - priv->search_buf_index0 < sizeof(priv->search_buf))){
-					request_read = 1;
-					continue;
-				}
-				if(priv->search_buf_index1 - priv->search_buf_index0 < prefix_len + suffix_len){
-                    if(read_buf){
-                        read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-                    }else{
-                        read_buf_index++;
-                        priv->search_buf_index0++;
-                    }
-					//printf("3Copying '%c'\r\n", read_buf[read_buf_index - 1]);
-					continue;
-				}else{
-					if(memcmp(&priv->search_buf[priv->search_buf_index0], prefix, prefix_len) == 0){
-						suffix_ptr = strstr((char*) &priv->search_buf[priv->search_buf_index0 + prefix_len], suffix);
-						if(!suffix_ptr){
-                            if(read_buf){
-                                read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-                            }else{
-                                read_buf_index++;
-                                priv->search_buf_index0++;
-                            }
-							//printf("4Copying '%c'\r\n", read_buf[read_buf_index - 1]);
-							continue;
-						}else{
-							char* variable_name = (char*) &priv->search_buf[priv->search_buf_index0 + prefix_len];
-							*suffix_ptr = '\0';
-							//printf("variable_name is '%s'", variable_name);
-							/*
-							** Replace pattern with xyz
-							*/
-                            xxxws_mvc_attribute_t* attribute = xxxws_mvc_attribute_get(client, variable_name);
-                            if(attribute){
-                                priv->working_buf  = (uint8_t*) attribute->value;
-                            }else{
-                                priv->working_buf = (uint8_t*) "";
-                            }
-							//priv->working_buf = (uint8_t*)"!!!!!!";
-							priv->replace_buf_index0 = 0;
-							priv->replace_buf_index1 = strlen((char*)priv->working_buf);
-							//uint16_t skip = (uint64_t) &suffix_ptr[suffix_len] - (uint64_t) &priv->search_buf[priv->search_buf_index0];
-							//priv->search_buf_index0 += skip;
-							//printf("%u:%u\r\n", &priv->search_buf[priv->search_buf_index0], &suffix_ptr[suffix_len] );
-							for(k = 0; &priv->search_buf[priv->search_buf_index0 + k] < (uint8_t*) &suffix_ptr[suffix_len] ; k++){
-								//printf("---- skipping %c\r\n", priv->search_buf[priv->search_buf_index0 + k]);
+			if(priv->sbuf[priv->sbuf_index0] == prefix[0]){
+				if(memcmp(&priv->sbuf[priv->sbuf_index0], prefix, prefix_len) == 0){
+					shift_and_fill_sbuf(file, priv);
+					suffix_ptr = strstr((char*) &priv->sbuf[priv->sbuf_index0 + prefix_len], suffix);
+					if(suffix_ptr){
+						/*
+						** {prefix}{attribute_name}{suffix} detected
+						*/
+						*suffix_ptr = '\0';
+						char* attribute_name = (char*) &priv->sbuf[priv->sbuf_index0 + prefix_len];
+						while((char*) &priv->sbuf[priv->sbuf_index0] < (char*) &suffix_ptr[suffix_len]){
+							priv->sbuf_index0++;
+							if(priv->sbuf_index0 > priv->sbuf_index1){ /* Some part may belong to the shadow buffer, take care of it */
+								XXXWS_ASSERT(priv->shadow_buf_size, "");
+								priv->sbuf_index1++;
+								priv->shadow_buf_size--;
 							}
-							priv->search_buf_index0 += k;
-							//search_buf_index1 = k;
-							//printf("Switch from search to replace.., skip is %u\r\n",k);
-							continue;
 						}
-					}else{
-                        if(read_buf){
-                            read_buf[read_buf_index++] = priv->search_buf[priv->search_buf_index0++];
-                        }else{
-                            read_buf_index++;
-                            priv->search_buf_index0++;
-                        }
-						//printf("5Copying '%c'\r\n", read_buf[read_buf_index - 1]);
+						xxxws_mvc_attribute_t* attribute = xxxws_mvc_attribute_get(client, attribute_name);
+						if(attribute){
+							priv->wbuf  = (uint8_t*) attribute->value;
+						}else{
+							priv->wbuf = (uint8_t*) "";
+						}
+						priv->rbuf_index0 = 0;
+						priv->rbuf_index1 = strlen((char*)priv->wbuf);
 						continue;
 					}
 				}
 			}
+			if(read_buf){
+				read_buf[read_buf_index] = priv->sbuf[priv->sbuf_index0];
+			}
+			read_buf_index++;
+			priv->sbuf_index0++;
 		}
-	};
+    }
 	*read_buf_sz_actual = read_buf_index;
-	return 0;
+	return XXXWS_ERR_OK;
+#undef shift_and_fill_sbuf
 }
-
-
 
 xxxws_err_t xxxws_resource_close_dynamic(xxxws_client_t* client){
     xxxws_err_t err;

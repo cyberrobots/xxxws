@@ -275,8 +275,11 @@ xxxws_err_t xxxws_fs_fread(xxxws_file_t* file, uint8_t* readbuf, uint32_t readbu
 	
 	*actualreadsize = 0;
 	err = file->partition->fread(file, readbuf, readbufsize, actualreadsize);
-	
-    return err;
+	if(err != XXXWS_ERR_OK){
+		return XXXWS_ERR_FATAL;
+	}else{
+		return XXXWS_ERR_OK;
+	}
 }
 
 /*
@@ -312,7 +315,11 @@ xxxws_err_t xxxws_fs_fclose(xxxws_file_t* file){
 	file->status = XXXWS_FILE_STATUS_CLOSED;
     file->partition = NULL;
     
-    return err;
+    if(err != XXXWS_ERR_OK){
+		return XXXWS_ERR_FATAL;
+	}else{
+		return XXXWS_ERR_OK;
+	}
 }
 
 xxxws_err_t xxxws_fs_fremove(char* vrt_path){
